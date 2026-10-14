@@ -21,3 +21,14 @@ Sans Supabase configuré, les formulaires fonctionnent en mode démonstration : 
   passer `statut` à `confirmee`.
 - **Photos partagées** : table `photos`, fichiers dans le bucket `galerie`. Elles n'apparaissent sur le site
   qu'une fois `statut` passé à `approuvee` (les requêtes sont en bas de `supabase/schema.sql`).
+
+## Espace admin (`admin.html`)
+
+Page non listée dans le menu, réservée aux comptes admin.
+
+1. Exécuter `supabase/schema.sql` (SQL Editor → Run). Le fichier peut être relancé sans risque.
+2. Supabase → Authentication → Users → Add user → Create new user : e-mail + mot de passe, cocher « Auto Confirm User ».
+3. Dans SQL Editor : `insert into public.admins (user_id) select id from auth.users where email = 'votre@email.com';`
+4. Conseillé : Authentication → Sign In / Providers → désactiver « Allow new users to sign up ».
+
+L'admin y confirme ou refuse les réservations (avec le reçu), publie ou refuse les photos, et lit les messages de contact.

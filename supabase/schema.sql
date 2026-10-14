@@ -89,6 +89,57 @@ drop policy if exists "galerie: depot public" on storage.objects;
 create policy "galerie: depot public" on storage.objects
   for insert to anon with check (bucket_id = 'galerie');
 
+-- ============ Espace admin ============
+-- Seuls les comptes listés ici (créés dans Authentication → Users) accèdent à admin.html.
+create table if not exists public.admins (
+  user_id    uuid primary key references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table public.admins enable row level security;
+
+create or replace function public.is_admin() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.admins where user_id = (select auth.uid()));
+$$;
+revoke execute on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+
+drop policy if exists "admins: lecture de sa propre ligne" on public.admins;
+create policy "admins: lecture de sa propre ligne" on public.admins
+  for select to authenticated using (user_id = (select auth.uid()));
+
+-- Les admins lisent et mettent à jour les réservations, les photos et les messages.
+drop policy if exists "reservations: admin lecture" on public.reservations;
+create policy "reservations: admin lecture" on public.reservations
+  for select to authenticated using ((select public.is_admin()));
+drop policy if exists "reservations: admin statut" on public.reservations;
+create policy "reservations: admin statut" on public.reservations
+  for update to authenticated using ((select public.is_admin())) with check ((select public.is_admin()));
+
+drop policy if exists "photos: admin lecture" on public.photos;
+create policy "photos: admin lecture" on public.photos
+  for select to authenticated using ((select public.is_admin()));
+drop policy if exists "photos: admin statut" on public.photos;
+create policy "photos: admin statut" on public.photos
+  for update to authenticated using ((select public.is_admin())) with check ((select public.is_admin()));
+
+drop policy if exists "messages: admin lecture" on public.messages;
+create policy "messages: admin lecture" on public.messages
+  for select to authenticated using ((select public.is_admin()));
+drop policy if exists "messages: admin traite" on public.messages;
+create policy "messages: admin traite" on public.messages
+  for update to authenticated using ((select public.is_admin())) with check ((select public.is_admin()));
+
+revoke all on public.reservations, public.photos, public.messages from authenticated;
+grant select, update (statut) on public.reservations to authenticated;
+grant select, update (statut) on public.photos to authenticated;
+grant select, update (traite) on public.messages to authenticated;
+
+-- Les admins peuvent ouvrir les reçus (bucket privé).
+drop policy if exists "recus: lecture admin" on storage.objects;
+create policy "recus: lecture admin" on storage.objects
+  for select to authenticated using (bucket_id = 'recus' and (select public.is_admin()));
+
 -- ============ Modération (à faire depuis le tableau de bord) ============
 -- Valider une photo :     update public.photos set statut = 'approuvee' where id = '...';
 -- Valider tout un envoi : update public.photos set statut = 'approuvee' where lot = '...';
@@ -96,3 +147,8 @@ create policy "galerie: depot public" on storage.objects
 --   update public.reservations set statut = 'confirmee' where reference = 'BJA-XXXXXX';
 -- Messages de contact non traités :
 --   select * from public.messages where not traite order by created_at desc;
+
+-- ============ Créer un compte admin ============
+-- 1. Authentication → Users → Add user → Create new user (e-mail + mot de passe, « Auto Confirm User » coché).
+-- 2. Puis ici, avec le même e-mail :
+--   insert into public.admins (user_id) select id from auth.users where email = 'admin@exemple.com';

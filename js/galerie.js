@@ -6,7 +6,6 @@
   const api = window.BJAApi;
   const cfg = window.BJA;
   const gallery = $(".gallery");
-  const frames = $$(".showcase-frame");
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const shuffle = (arr) => {
@@ -17,13 +16,23 @@
     return arr;
   };
 
-  // Photos du site déjà présentes dans la grille (fichiers locaux ou teintes de remplacement)
-  const localSlides = () => $$(".tile", gallery).map((t) => ({
-    src: $("img", t).src, // si le fichier manque, la teinte de l'emplacement reste visible
-    title: $(".tile-caption b", t).textContent,
-    sub: $(".tile-caption span", t).textContent,
-    tones: t.style.cssText,
-  }));
+  // Photos du site : fichiers de la galerie qui existent vraiment, plus la photo d'accueil
+  const localSlides = () => {
+    const candidates = [
+      { src: "assets/hero.jpg", title: "BJA HOUSE", sub: "Nos rencontres" },
+      ...$$(".tile", gallery).map((t) => ({
+        src: $("img", t).getAttribute("src"),
+        title: $(".tile-caption b", t).textContent,
+        sub: $(".tile-caption span", t).textContent,
+      })),
+    ];
+    return Promise.all(candidates.map((c) => new Promise((resolve) => {
+      const probe = new Image();
+      probe.onload = () => resolve({ ...c, src: probe.src }); // URL absolue
+      probe.onerror = () => resolve(null);
+      probe.src = c.src;
+    }))).then((list) => list.filter(Boolean));
+  };
 
   async function loadApproved() {
     if (!api.isReady()) return [];
@@ -49,44 +58,48 @@
         <span class="tile-caption"><b>${api.esc(p.title)}</b><span>${api.esc(p.sub)}</span></span>
       </button>`).join("");
     gallery.insertAdjacentHTML("afterbegin", html);
-    // respecte le filtre actif
     const active = $(".filter[aria-pressed=true]");
     if (active && active.dataset.filter !== "tout") active.click();
   }
 
-  /* ---------- Diaporama : chaque cadre change de photo à son rythme, en fondu ---------- */
-  function paint(frame, slide) {
+  /* ---------- Bandeau « Nos moments » : photos tirées au hasard, en fondu ---------- */
+  const hero = $("[data-hero-slides]");
+  const stage = hero && $(".hero-slides", hero);
+  const caption = hero && Object.assign(document.createElement("p"), { className: "hero-slide-caption" });
+  if (caption) hero.appendChild(caption);
+
+  function show(slide) {
     const layer = document.createElement("div");
-    layer.className = "showcase-layer";
-    layer.style.cssText = slide.tones || "";
-    if (slide.src) layer.style.setProperty("--img", `url("${slide.src.replace(/"/g, "%22")}")`);
-    frame.insertBefore(layer, frame.querySelector("figcaption"));
-    frame.querySelector("figcaption").innerHTML = `<b>${api.esc(slide.title)}</b><span>${api.esc(slide.sub)}</span>`;
-    requestAnimationFrame(() => layer.classList.add("is-visible"));
-    // retire les anciennes couches une fois le fondu terminé
-    const old = $$(".showcase-layer", frame).slice(0, -1);
-    setTimeout(() => old.forEach((o) => o.remove()), 1200);
+    layer.className = "hero-slide";
+    layer.style.setProperty("--img", `url("${slide.src.replace(/"/g, "%22")}")`);
+    stage.appendChild(layer);
+    requestAnimationFrame(() => requestAnimationFrame(() => layer.classList.add("is-visible")));
+    caption.textContent = `${slide.title} · ${slide.sub}`;
+    const old = $$(".hero-slide", stage).slice(0, -1);
+    setTimeout(() => old.forEach((o) => o.remove()), 1600);
   }
 
-  function startShowcase(slides) {
-    if (!frames.length || !slides.length) return;
+  function startSlides(slides) {
+    if (!stage || !slides.length) return;
     let pool = shuffle([...slides]);
     let cursor = 0;
-    const nextSlide = () => {
-      if (cursor >= pool.length) { pool = shuffle([...slides]); cursor = 0; }
+    const next = () => {
+      if (cursor >= pool.length) {
+        const last = pool[pool.length - 1];
+        pool = shuffle([...slides]);
+        if (pool.length > 1 && pool[0] === last) pool.push(pool.shift()); // évite deux fois la même photo
+        cursor = 0;
+      }
       return pool[cursor++];
     };
-    frames.forEach((f) => paint(f, nextSlide()));
-    if (reduceMotion || slides.length <= frames.length) return;
-    frames.forEach((frame, i) => {
-      // cadres décalés pour que les changements ne tombent pas en même temps
-      setTimeout(() => setInterval(() => { if (!document.hidden) paint(frame, nextSlide()); }, 5200), 1700 * i + 2500);
-    });
+    show(next());
+    if (reduceMotion || slides.length < 2) return;
+    setInterval(() => { if (!document.hidden) show(next()); }, 5000);
   }
 
-  loadApproved().then((approved) => {
+  loadApproved().then(async (approved) => {
     if (approved.length) addTiles(approved);
-    // le diaporama tire au hasard dans les photos validées, sinon dans la galerie du site
-    startShowcase(approved.length ? approved : localSlides());
+    // tirage au hasard dans les photos validées, sinon dans les photos du site
+    startSlides(approved.length ? approved : await localSlides());
   });
 })();

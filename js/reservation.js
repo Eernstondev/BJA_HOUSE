@@ -192,7 +192,9 @@ window.BJAApi.ready.then(() => {
             "IMPORTANT : j'envoie la photo de mon reçu de paiement juste après ce message, pour la vérification complète de ma réservation.",
           ]
         : ["", "Réservation gratuite : merci de me confirmer ma place."]),
+    ...(result.ticket_token ? ["", `Mon billet : ${ticketUrl(result)}`] : []),
   ].join("\n");
+  const ticketUrl = (result) => new URL(`billet.html?t=${encodeURIComponent(result.ticket_token)}`, location.href).href;
 
   /* ---------- Envoi ---------- */
   const submit = $("button[type=submit]", form);
@@ -255,11 +257,11 @@ window.BJAApi.ready.then(() => {
       $("[data-done-title]", done).textContent = "Vous êtes sur la liste d'attente";
       $("[data-done-text]", done).textContent = "L'événement est complet. Ne payez rien pour l'instant : l'équipe vous contacte sur WhatsApp si une place se libère.";
     } else if (result.montant <= 0) {
-      $("[data-done-title]", done).textContent = "Dernière étape : confirmez sur WhatsApp";
-      $("[data-done-text]", done).textContent = "WhatsApp s'ouvre avec un message pré-rempli : envoyez-le pour que l'équipe confirme votre place.";
+      $("[data-done-title]", done).textContent = "Votre place est réservée";
+      $("[data-done-text]", done).textContent = "Ouvrez votre billet : le QR code y apparaît dès que l'équipe a confirmé votre place.";
     }
     if (result.ticket_token) {
-      $("[data-ticket-link]", done).href = `billet.html?t=${encodeURIComponent(result.ticket_token)}`;
+      $("[data-ticket-link]", done).href = ticketUrl(result);
       $("[data-ticket-link]", done).hidden = false;
       $("[data-ticket-note]", done).hidden = false;
     }
@@ -270,7 +272,5 @@ window.BJAApi.ready.then(() => {
     form.hidden = true;
     done.hidden = false;
     done.focus();
-    // Laisse voir la référence et le lien du billet avant d'ouvrir WhatsApp
-    if (link) setTimeout(() => (location.href = link), 1500);
   });
 });

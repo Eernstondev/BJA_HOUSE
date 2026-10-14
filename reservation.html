@@ -46,6 +46,10 @@
 
     <div class="booking-main">
       <form class="form" id="reservation-form" novalidate hidden>
+        <div class="pay-info waitlist-note" data-waitlist hidden>
+          <b>Événement complet</b>
+          <p>Inscrivez-vous sur la liste d'attente : ne payez rien pour l'instant. Si une place se libère, l'équipe vous contacte sur WhatsApp.</p>
+        </div>
         <fieldset class="form-block">
           <legend>Vos informations</legend>
           <div class="form-row">
@@ -76,6 +80,14 @@
 
         <fieldset class="form-block" data-payment-block>
           <legend>Paiement</legend>
+          <div class="field">
+            <label for="code">Code promo <span class="optional">(facultatif)</span></label>
+            <div class="promo-row">
+              <input id="code" name="code" type="text" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false">
+              <button class="btn btn--outline btn--sm" type="button" data-promo-apply>Appliquer</button>
+            </div>
+            <span class="promo-msg" data-promo-msg role="status"></span>
+          </div>
           <div class="pay-options" data-payment-options></div>
           <span class="field-error" id="paiement-error"></span>
           <div class="field">
@@ -95,11 +107,15 @@
       </form>
 
       <div class="done-panel" data-done hidden tabindex="-1">
-        <p class="eyebrow">Réservation enregistrée</p>
-        <h2>Dernière étape : envoyez votre reçu</h2>
+        <p class="eyebrow" data-done-eyebrow>Réservation enregistrée</p>
+        <h2 data-done-title>Dernière étape : envoyez votre reçu</h2>
         <p>Votre référence : <b class="ref" data-ref></b></p>
         <p data-done-text>WhatsApp s'ouvre avec un message pré-rempli. <b>Ajoutez la photo de votre reçu de paiement</b> avant d'envoyer : votre place sera confirmée après vérification.</p>
-        <a class="btn btn--primary" data-wa-link target="_blank" rel="noopener">Ouvrir WhatsApp <span class="arrow" aria-hidden="true">→</span></a>
+        <div class="done-actions">
+          <a class="btn btn--primary" data-wa-link target="_blank" rel="noopener">Ouvrir WhatsApp <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn--outline" data-ticket-link hidden>Mon billet</a>
+        </div>
+        <p class="form-note" data-ticket-note hidden>Gardez le lien « Mon billet » : votre QR code y apparaît dès que l'équipe a confirmé votre place. Il sera scanné à l'entrée.</p>
         <p class="form-note" data-done-note></p>
       </div>
     </div>

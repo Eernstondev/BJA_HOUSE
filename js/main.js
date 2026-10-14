@@ -238,6 +238,35 @@
     });
   }
 
+  /* ---------- Alertes : e-mail ou numéro WhatsApp ---------- */
+  $$("[data-newsletter]").forEach((form) => {
+    const status = $(".newsletter-status", form);
+    const say = (text, isError) => { status.hidden = false; status.classList.toggle("is-error", isError); status.textContent = text; };
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const raw = form.elements.contact.value.trim();
+      const digits = raw.replace(/\D/g, "");
+      let row = null;
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(raw)) row = { email: raw.toLowerCase() };
+      else if (/^\+?[0-9 ().-]{8,20}$/.test(raw) && digits.length >= 8) row = { whatsapp: digits.length === 8 ? "509" + digits : digits };
+      if (!row) return say("Entrez un e-mail valide ou un numéro WhatsApp (ex. +509 37 00 0000).", true);
+      if (!window.BJAApi.isReady()) return say("Merci ! (mode démonstration : rien n'a été enregistré)", false);
+      const btn = $("button", form);
+      btn.disabled = true;
+      try {
+        await window.BJAApi.insert("abonnes", row);
+        say("C'est noté ! Vous serez prévenu du prochain événement.", false);
+        form.reset();
+      } catch (err) {
+        // 409 = déjà inscrit
+        if (/409/.test(err.message)) say("Vous êtes déjà inscrit. À bientôt !", false);
+        else say("L'inscription a échoué. Réessayez dans un instant.", true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
   /* ---------- Année du pied de page ---------- */
   $$("[data-year]").forEach((el) => (el.textContent = new Date().getFullYear()));
 })();

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Événement · BJA HOUSE</title>
+<meta name="description" content="Détails d'un événement BJA HOUSE, places restantes et avis des participants.">
+<meta name="theme-color" content="#11286e">
+<link rel="icon" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Public+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="BJA HOUSE, accueil">
+      <img class="brand-logo" src="assets/logo.png" alt="BJA HOUSE">
+      <span class="brand-text"><span class="brand-mark">BJA</span><span class="brand-name">HOUSE</span></span>
+    </a>
+    <button class="nav-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav"><span></span><span></span><span></span></button>
+    <nav class="nav" id="nav" aria-label="Navigation principale">
+      <a href="index.html">Accueil</a>
+      <a href="galerie.html">Galerie</a>
+      <a href="activites.html" aria-current="page">Activités</a>
+      <a href="a-propos.html">À propos</a>
+      <a class="nav-cta" href="contact.html">Contact</a>
+    </nav>
+  </div>
+</header>
+<main>
+<section class="page-hero page-hero--compact event-hero" data-event-hero>
+  <div class="wrap">
+    <p class="eyebrow"><a class="back-link" href="activites.html">← Activités</a></p>
+    <h1 data-event-title>Événement</h1>
+    <p data-event-sub></p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap event-detail">
+    <div class="event-detail-main" data-event-main>
+      <p class="events-empty">Chargement de l'événement…</p>
+    </div>
+    <aside class="booking-summary event-detail-side" data-event-side></aside>
+  </div>
+</section>
+
+<section class="section section--white" data-reviews hidden>
+  <div class="wrap reviews">
+    <div class="section-head">
+      <p class="eyebrow">Avis</p>
+      <h2>Ce qu'en disent les participants</h2>
+      <p data-reviews-summary></p>
+    </div>
+    <div class="reviews-list" data-reviews-list></div>
+
+    <form class="form review-form" id="review-form" novalidate hidden>
+      <h3>Vous y étiez ? Laissez votre avis</h3>
+      <fieldset class="field stars-field">
+        <legend>Votre note</legend>
+        <div class="stars-input">
+          <input type="radio" id="note-5" name="note" value="5"><label for="note-5" title="5 sur 5">★</label>
+          <input type="radio" id="note-4" name="note" value="4"><label for="note-4" title="4 sur 5">★</label>
+          <input type="radio" id="note-3" name="note" value="3"><label for="note-3" title="3 sur 5">★</label>
+          <input type="radio" id="note-2" name="note" value="2"><label for="note-2" title="2 sur 5">★</label>
+          <input type="radio" id="note-1" name="note" value="1"><label for="note-1" title="1 sur 5">★</label>
+        </div>
+      </fieldset>
+      <div class="field">
+        <label for="avis-commentaire">Votre commentaire</label>
+        <textarea id="avis-commentaire" name="commentaire" maxlength="800"></textarea>
+      </div>
+      <div class="field">
+        <label for="avis-code">Votre référence de réservation</label>
+        <input id="avis-code" name="code" type="text" maxlength="60" placeholder="BJA-XXXXXX" autocapitalize="characters" spellcheck="false">
+        <span class="admin-hint">Elle figure sur votre billet. Seules les personnes présentes peuvent laisser un avis.</span>
+      </div>
+      <p class="form-status" role="status" hidden></p>
+      <button class="btn btn--primary" type="submit">Publier mon avis</button>
+    </form>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <a class="brand brand--footer" href="index.html" aria-label="BJA HOUSE, accueil"><img class="brand-logo" src="assets/logo.png" alt="BJA HOUSE"><span class="brand-text"><span class="brand-mark">BJA</span><span class="brand-name">HOUSE</span></span></a>
+        <p>Un groupe de jeunes qui organise des soirées, des sorties, du sport et des ateliers. Ouvert à toutes celles et ceux qui veulent s'impliquer.</p>
+      </div>
+      <div>
+        <p class="footer-title">Pages</p>
+        <ul class="footer-links">
+          <li><a href="index.html">Accueil</a></li>
+          <li><a href="galerie.html">Galerie</a></li>
+          <li><a href="activites.html">Activités</a></li>
+          <li><a href="a-propos.html">À propos</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="footer-title">Suivre BJA HOUSE</p>
+        <ul class="footer-links">
+          <li><a href="https://www.instagram.com/" target="_blank" rel="noopener" data-contact="instagram">Instagram</a></li>
+          <li><a href="https://www.tiktok.com/" target="_blank" rel="noopener" data-contact="tiktok">TikTok</a></li>
+          <li><a href="contact.html" data-contact="email">contact@bjahouse.fr</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span data-year>2026</span> BJA HOUSE. Tous droits réservés. <a class="admin-link" href="admin.html" rel="nofollow">Admin</a></span>
+      <span>Site réalisé par <b class="credit">URBVEC ATELIER</b></span>
+    </div>
+  </div>
+</footer>
+<script src="js/config.js" defer></script>
+<script src="js/api.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/evenement.js" defer></script>
+</body>
+</html>

@@ -62,5 +62,49 @@ window.BJAApi = (() => {
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  return { isReady, insert, select, upload, publicUrl, uuid, reference, extension, whatsappLink, price, eventDate, isPast, findEvent, esc };
+  /* ---------- Contenu géré depuis l'espace admin ----------
+     Réglages, événements et membres sont lus dans la base. Si elle ne répond pas,
+     le site garde les valeurs de config.js. Les pages attendent BJAApi.ready. */
+  const PAY_LABELS = { moncash: "MonCash", natcash: "NatCash" };
+
+  function applySettings(r) {
+    if (!r) return;
+    if (r.whatsapp) cfg.whatsapp = r.whatsapp;
+    ["email", "instagram", "tiktok"].forEach((k) => { if (r[k]) cfg.contact[k] = r[k]; });
+    cfg.paymentMethods = cfg.paymentMethods.map((m) => {
+      const num = r[`${m.id}_numero`];
+      if (!num) return m;
+      const nom = r[`${m.id}_nom`];
+      return { ...m, details: `Envoyez le montant par ${PAY_LABELS[m.id] || m.label} au ${num}${nom ? ` (nom : ${nom})` : ""}, puis faites une capture du reçu.` };
+    });
+  }
+
+  const toEvent = (r) => ({
+    id: r.id, date: r.debut.slice(0, 16), title: r.titre, cat: r.categorie, hours: r.horaires,
+    place: r.lieu, price: Number(r.prix), desc: r.description,
+    image: r.image_path ? publicUrl("site", r.image_path) : null,
+  });
+
+  const toMember = (r) => ({
+    name: r.nom, role: r.role, bio: r.bio, photo: r.photo_path ? publicUrl("site", r.photo_path) : null,
+  });
+
+  const ready = (async () => {
+    if (!isReady()) return;
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("délai dépassé")), 6000));
+    try {
+      const [settings, events, members] = await Promise.race([Promise.all([
+        select("reglages", "select=*&id=eq.1"),
+        select("evenements", "select=*&order=debut.asc"),
+        select("membres", "select=nom,role,bio,photo_path&order=ordre.asc,created_at.asc"),
+      ]), timeout]);
+      applySettings(settings[0]);
+      cfg.events = events.map(toEvent);
+      cfg.members = members.map(toMember);
+    } catch {
+      /* base injoignable ou pas encore installée : config.js reste utilisé */
+    }
+  })();
+
+  return { isReady, ready, insert, select, upload, publicUrl, uuid, reference, extension, whatsappLink, price, eventDate, isPast, findEvent, esc };
 })();

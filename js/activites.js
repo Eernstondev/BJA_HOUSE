@@ -1,5 +1,5 @@
-/* BJA HOUSE — agenda de la page Activités, généré depuis config.js */
-(() => {
+/* BJA HOUSE — agenda de la page Activités, lu dans la base (ou config.js) */
+window.BJAApi.ready.then(() => {
   "use strict";
   const list = document.querySelector("[data-events-list]");
   if (!list) return;
@@ -24,6 +24,7 @@
       <article class="event${isPast ? " is-past" : ""}" data-cat="${esc(ev.cat)}">
         <div class="ticket-date"><span class="ticket-day">${day}</span><span class="ticket-month">${esc(month)}</span></div>
         <div class="event-body">
+          ${ev.image ? `<img class="event-cover" src="${esc(ev.image)}" alt="" loading="lazy">` : ""}
           <span class="tag">${esc(categories[ev.cat] || ev.cat)}</span>
           <h3>${esc(ev.title)}</h3>
           <p>${esc(ev.desc)}</p>
@@ -39,4 +40,4 @@
   };
 
   list.innerHTML = [...upcoming.map((e) => card(e, false)), ...past.map((e) => card(e, true))].join("");
-})();
+});

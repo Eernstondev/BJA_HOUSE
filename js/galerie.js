@@ -1,5 +1,5 @@
 /* BJA HOUSE — galerie : photos validées depuis la base de données et diaporama aléatoire */
-(() => {
+window.BJAApi.ready.then(() => {
   "use strict";
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -102,4 +102,4 @@
     // tirage au hasard dans les photos validées, sinon dans les photos du site
     startSlides(approved.length ? approved : await localSlides());
   });
-})();
+});

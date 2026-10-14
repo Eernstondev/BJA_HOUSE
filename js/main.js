@@ -51,45 +51,75 @@
     probe.src = src;
   }
 
-  /* ---------- Prochain événement (accueil), lu depuis config.js ---------- */
-  const ticket = $("[data-next-event]");
-  if (ticket && window.BJA && window.BJAApi) {
-    const next = window.BJA.events
-      .filter((e) => !window.BJAApi.isPast(e))
-      .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-    if (next) {
-      const d = new Date(next.date);
-      $("[data-ne-day]", ticket).textContent = String(d.getDate()).padStart(2, "0");
-      $("[data-ne-month]", ticket).textContent = d.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "");
-      $("[data-ne-title]", ticket).textContent = next.title;
-      $("[data-ne-hours]", ticket).textContent = next.hours;
-      $("[data-ne-price]", ticket).textContent = window.BJAApi.price(next.price);
-      $("[data-countdown]", ticket).dataset.countdown = next.date;
-      ticket.href = `reservation.html#${next.id}`;
-    }
-  }
+  /* ---------- Contenu lu dans la base (via BJAApi.ready), sinon config.js ---------- */
+  const api = window.BJAApi;
+  const cfg = window.BJA;
+  api.ready.then(() => {
+    /* ---------- Coordonnées ---------- */
+    $$("[data-contact]").forEach((el) => {
+      const key = el.dataset.contact;
+      if (key === "email") el.textContent = cfg.contact.email;
+      else if (key === "email-copy") el.dataset.copy = cfg.contact.email;
+      else el.href = cfg.contact[key];
+    });
 
-  /* ---------- Compte à rebours ---------- */
-  $$("[data-countdown]").forEach((el) => {
-    const target = new Date(el.dataset.countdown).getTime();
-    if (Number.isNaN(target)) return;
-    const parts = { d: $("[data-d]", el), h: $("[data-h]", el), m: $("[data-m]", el), s: $("[data-s]", el) };
-    const pad = (n) => String(n).padStart(2, "0");
-    const tick = () => {
-      const diff = target - Date.now();
-      if (diff <= 0) {
-        el.textContent = diff > -6 * 3600e3 ? "C'est maintenant !" : "Événement terminé";
-        return false;
-      }
-      parts.d.textContent = Math.floor(diff / 864e5);
-      parts.h.textContent = pad(Math.floor((diff % 864e5) / 36e5));
-      parts.m.textContent = pad(Math.floor((diff % 36e5) / 6e4));
-      if (parts.s) parts.s.textContent = pad(Math.floor((diff % 6e4) / 1e3));
-      return true;
-    };
-    if (tick()) {
-      const id = setInterval(() => { if (!tick()) clearInterval(id); }, 1000);
+    /* ---------- Membres ---------- */
+    if (cfg.members?.length) {
+      const esc = api.esc;
+      $$(".members").forEach((box) => {
+        box.innerHTML = cfg.members.map((m) => `
+          <button class="member-card" type="button" data-name="${esc(m.name)}" data-role="${esc(m.role)}" data-bio="${esc(m.bio)}" data-photo="${esc(m.photo || "")}">
+            <span class="photo member-photo${m.photo ? "" : " is-empty"}">${m.photo ? `<img src="${esc(m.photo)}" alt="" loading="lazy">` : ""}<span class="photo-label member-initial" aria-hidden="true">${esc(m.role.charAt(0))}</span></span>
+            <span class="member-info"><b>${esc(m.name)}</b><span>${esc(m.role)}</span></span>
+            <span class="member-more" aria-hidden="true">Voir le profil →</span>
+          </button>`).join("");
+        $$(".photo img", box).forEach((img) => {
+          const ph = img.closest(".photo");
+          watchImage(img, () => ph.classList.remove("is-empty"), () => ph.classList.add("is-empty"));
+        });
+      });
     }
+
+    /* ---------- Prochain événement (accueil) ---------- */
+    const ticket = $("[data-next-event]");
+    if (ticket) {
+      const next = window.BJA.events
+        .filter((e) => !window.BJAApi.isPast(e))
+        .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+      if (next) {
+        const d = new Date(next.date);
+        $("[data-ne-day]", ticket).textContent = String(d.getDate()).padStart(2, "0");
+        $("[data-ne-month]", ticket).textContent = d.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "");
+        $("[data-ne-title]", ticket).textContent = next.title;
+        $("[data-ne-hours]", ticket).textContent = next.hours;
+        $("[data-ne-price]", ticket).textContent = window.BJAApi.price(next.price);
+        $("[data-countdown]", ticket).dataset.countdown = next.date;
+        ticket.href = `reservation.html#${next.id}`;
+      }
+    }
+
+    /* ---------- Compte à rebours ---------- */
+    $$("[data-countdown]").forEach((el) => {
+      const target = new Date(el.dataset.countdown).getTime();
+      if (Number.isNaN(target)) return;
+      const parts = { d: $("[data-d]", el), h: $("[data-h]", el), m: $("[data-m]", el), s: $("[data-s]", el) };
+      const pad = (n) => String(n).padStart(2, "0");
+      const tick = () => {
+        const diff = target - Date.now();
+        if (diff <= 0) {
+          el.textContent = diff > -6 * 3600e3 ? "C'est maintenant !" : "Événement terminé";
+          return false;
+        }
+        parts.d.textContent = Math.floor(diff / 864e5);
+        parts.h.textContent = pad(Math.floor((diff % 864e5) / 36e5));
+        parts.m.textContent = pad(Math.floor((diff % 36e5) / 6e4));
+        if (parts.s) parts.s.textContent = pad(Math.floor((diff % 6e4) / 1e3));
+        return true;
+      };
+      if (tick()) {
+        const id = setInterval(() => { if (!tick()) clearInterval(id); }, 1000);
+      }
+    });
   });
 
   /* ---------- Filtres (galerie et activités) : les éléments sont relus à chaque clic ---------- */
@@ -220,19 +250,19 @@
   const img = photoBox.querySelector("img");
   const initial = photoBox.querySelector(".member-initial");
 
-  document.querySelectorAll(".member-card").forEach((card) =>
-    card.addEventListener("click", () => {
-      const { name, role, bio, photo } = card.dataset;
-      dialog.querySelector("#md-name").textContent = name;
-      dialog.querySelector(".md-role").textContent = role;
-      dialog.querySelector(".md-bio").textContent = bio;
-      initial.textContent = role.charAt(0);
-      const hasPhoto = !card.querySelector(".photo").classList.contains("is-empty");
-      photoBox.classList.toggle("is-empty", !hasPhoto);
-      if (hasPhoto) { img.src = photo; img.alt = `${name}, ${role}`; } else { img.removeAttribute("src"); }
-      dialog.showModal();
-    })
-  );
+  document.addEventListener("click", (e) => {
+    const card = e.target.closest(".member-card");
+    if (!card) return;
+    const { name, role, bio, photo } = card.dataset;
+    dialog.querySelector("#md-name").textContent = name;
+    dialog.querySelector(".md-role").textContent = role;
+    dialog.querySelector(".md-bio").textContent = bio;
+    initial.textContent = role.charAt(0);
+    const hasPhoto = !card.querySelector(".photo").classList.contains("is-empty");
+    photoBox.classList.toggle("is-empty", !hasPhoto);
+    if (hasPhoto) { img.src = photo; img.alt = `${name}, ${role}`; } else { img.removeAttribute("src"); }
+    dialog.showModal();
+  });
   dialog.querySelector(".md-close").addEventListener("click", () => dialog.close());
   dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); }); // clic sur le fond
 })();

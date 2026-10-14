@@ -195,6 +195,10 @@ alter table public.evenements add column if not exists places integer check (pla
 alter table public.evenements add column if not exists prix_vip   numeric check (prix_vip is null or prix_vip >= 0);
 alter table public.evenements add column if not exists places_vip integer check (places_vip is null or places_vip > 0);
 alter table public.reservations add column if not exists type_billet text not null default 'standard' check (type_billet in ('standard', 'vip'));
+-- Fin des ventes : nombre d'heures avant le début où les réservations ferment (vide = jusqu'au début)
+alter table public.evenements add column if not exists fin_ventes_heures integer check (fin_ventes_heures is null or fin_ventes_heures between 0 and 168);
+-- Annulation par le client : la réservation passe en « refusee » avec la date d'annulation
+alter table public.reservations add column if not exists annulee_le timestamptz;
 
 create table if not exists public.codes_promo (
   code             text primary key check (code ~ '^[A-Z0-9_-]{3,40}$'),
@@ -312,6 +316,9 @@ begin
   select * into ev from public.evenements where id = p_event_id and publie for update;
   if not found then raise exception 'Événement introuvable.'; end if;
   if ev.debut < public.maintenant_haiti() - interval '6 hours' then raise exception 'Cet événement est terminé.'; end if;
+  if ev.fin_ventes_heures is not null and public.maintenant_haiti() > ev.debut - make_interval(hours => ev.fin_ventes_heures) then
+    raise exception 'Les réservations sont fermées pour cet événement.';
+  end if;
 
   if ev.places is not null then
     select coalesce(sum(places), 0) into pris from public.reservations
@@ -371,11 +378,36 @@ returns json language sql stable security definer set search_path = '' as $$
   select json_build_object(
     'reference', r.reference, 'prenom', r.prenom, 'nom', r.nom, 'statut', r.statut,
     'liste_attente', r.liste_attente, 'montant', r.montant, 'scanned_at', r.scanned_at, 'places', r.places, 'entrees', r.entrees, 'type', r.type_billet,
+    'annulee_le', r.annulee_le,
     'event_id', r.event_id, 'evenement', coalesce(e.titre, r.event_title),
     'debut', e.debut, 'horaires', e.horaires, 'lieu', e.lieu)
   from public.reservations r left join public.evenements e on e.id = r.event_id
   where r.ticket_token = p_token;
 $$;
+
+-- Annulation par le client, depuis son billet : il faut le jeton du billet et les 4 derniers chiffres du téléphone
+-- (un membre du groupe qui a reçu le lien ne peut donc pas annuler à la place de la personne qui a réservé).
+create or replace function public.annuler_reservation(p_token uuid, p_tel_fin text)
+returns json language plpgsql security definer set search_path = '' as $$
+declare
+  r  public.reservations;
+  ev public.evenements;
+begin
+  select * into r from public.reservations where ticket_token = p_token for update;
+  if not found then raise exception 'Billet introuvable.'; end if;
+  if right(regexp_replace(r.telephone, '\D', '', 'g'), 4) <> right(regexp_replace(coalesce(p_tel_fin, ''), '\D', '', 'g'), 4)
+     or length(regexp_replace(coalesce(p_tel_fin, ''), '\D', '', 'g')) < 4 then
+    raise exception 'Les 4 derniers chiffres ne correspondent pas au numéro utilisé pour réserver.';
+  end if;
+  if r.annulee_le is not null then raise exception 'Cette réservation est déjà annulée.'; end if;
+  if r.statut = 'refusee' then raise exception 'Cette réservation a été refusée par l''équipe.'; end if;
+  if r.scanned_at is not null then raise exception 'Ce billet a déjà servi à l''entrée : annulation impossible.'; end if;
+  select * into ev from public.evenements where id = r.event_id;
+  if found and ev.debut <= public.maintenant_haiti() then raise exception 'L''événement a commencé : annulation impossible.'; end if;
+  update public.reservations set statut = 'refusee', annulee_le = now() where id = r.id;
+  return json_build_object('reference', r.reference, 'evenement', r.event_title, 'montant', r.montant, 'places', r.places,
+    'liste_attente', r.liste_attente, 'annulee_le', now());
+end $$;
 
 -- Scan à l'entrée (admin) : par QR code (jeton) ou par référence BJA-XXXXXX
 -- Billet de groupe : sans p_nombre, l'admin choisit d'abord combien de personnes entrent (résultat « groupe »).
@@ -450,10 +482,10 @@ end $$;
 
 revoke execute on function public.places_restantes(), public.verifier_code(text, text, text),
   public.reserver(text, text, text, text, text, text, text, text, integer, text), public.billet(uuid),
-  public.valider_entree(text, integer), public.laisser_avis(text, integer, text, text) from public;
+  public.valider_entree(text, integer), public.laisser_avis(text, integer, text, text), public.annuler_reservation(uuid, text) from public;
 grant execute on function public.places_restantes(), public.verifier_code(text, text, text),
   public.reserver(text, text, text, text, text, text, text, text, integer, text), public.billet(uuid),
-  public.laisser_avis(text, integer, text, text) to anon, authenticated;
+  public.laisser_avis(text, integer, text, text), public.annuler_reservation(uuid, text) to anon, authenticated;
 grant execute on function public.valider_entree(text, integer) to authenticated;
 
 -- ============ Espace admin ============

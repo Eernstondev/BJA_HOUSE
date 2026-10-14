@@ -1083,3 +1083,16 @@ p { margin: 0; }
 .ticket-type.is-disabled { opacity: .55; cursor: not-allowed; }
 .admin-badge--vip { background: #1b1f2e; color: #f1d27a; }
 .eticket-badges { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.event-sales-end { font-size: .85rem; color: var(--grey-300); }
+
+/* ---------- Billet : annulation ---------- */
+.eticket-cancel { border-top: 1px solid var(--grey-150); padding-top: 14px; font-size: var(--step--1); }
+.eticket-cancel summary { cursor: pointer; color: var(--grey-700); font-weight: 600; width: fit-content; }
+.eticket-cancel summary:hover { color: #b42318; }
+.eticket-cancel-form { display: grid; gap: 8px; margin-top: 10px; }
+.eticket-cancel-form label { font-weight: 600; }
+.eticket-cancel-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.eticket-cancel-row input { flex: 1 1 90px; min-width: 0; max-width: 140px; font: inherit; letter-spacing: .2em; border: 1px solid var(--grey-300); border-radius: var(--radius); padding: 9px 12px; }
+.eticket-cancel-row .btn { color: #b42318; border-color: #b42318; }
+.eticket-cancel-row .btn:hover { background: #b42318; color: var(--white); }
+.admin-alert { margin: 0; padding: 10px 12px; border-radius: var(--radius); background: #fff4d6; color: #8a5a00; font-size: var(--step--1); font-weight: 600; }

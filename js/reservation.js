@@ -13,12 +13,13 @@ window.BJAApi.ready.then(() => {
   const done = $("[data-done]");
   const ev = api.findEvent(decodeURIComponent(location.hash.slice(1)));
 
-  /* ---------- Événement introuvable ou passé ---------- */
-  if (!ev || api.isPast(ev)) {
+  /* ---------- Événement introuvable, passé ou ventes fermées ---------- */
+  if (!ev || api.isPast(ev) || api.salesClosed(ev)) {
+    const closed = ev && !api.isPast(ev);
     summary.innerHTML = `
       <p class="eyebrow">Réservation</p>
-      <h2>${ev ? "Cet événement est terminé" : "Choisissez d'abord un événement"}</h2>
-      <p>Retrouvez les prochains rendez-vous dans l'agenda.</p>
+      <h2>${!ev ? "Choisissez d'abord un événement" : closed ? "Les réservations sont fermées" : "Cet événement est terminé"}</h2>
+      <p>${closed ? `Les réservations pour « ${esc(ev.title)} » ont fermé ${ev.salesEndHours} h avant le début. ` : ""}Retrouvez les prochains rendez-vous dans l'agenda.</p>
       <a class="btn btn--primary" href="activites.html">Voir l'agenda <span class="arrow" aria-hidden="true">→</span></a>`;
     return;
   }

@@ -174,7 +174,7 @@
 
   const isPastEvent = (ev) => api.isPast({ date: ev.debut });
   const TABS = {
-    reservations: { label: "Réservations", filters: [["en_attente", "À vérifier"], ["confirmee", "Confirmées"], ["attente", "Liste d'attente"], ["refusee", "Refusées"], ["", "Toutes"]], pending: (r) => r.statut === "en_attente" && !r.liste_attente },
+    reservations: { label: "Réservations", filters: [["en_attente", "À vérifier"], ["confirmee", "Confirmées"], ["attente", "Liste d'attente"], ["refusee", "Refusées"], ["annulee", "Annulées"], ["", "Toutes"]], pending: (r) => r.statut === "en_attente" && !r.liste_attente },
     rappels: { label: "Rappels", filters: [] },
     scanner: { label: "Scanner", filters: [] },
     entrees: { label: "Entrées", filters: [] },
@@ -251,6 +251,11 @@
   const seatsOf = (r) => Number(r.places) || 1;
   const sumSeats = (list) => list.reduce((n, r) => n + seatsOf(r), 0);
   const isVip = (r) => r.type_billet === "vip";
+  const inQueue = (r) => r.liste_attente && !r.annulee_le;
+  const waitPos = (r) => data.reservations
+    .filter((x) => x.event_id === r.event_id && inQueue(x))
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .indexOf(r) + 1;
   const enteredOf = (r) => (r.entrees != null ? Number(r.entrees) : r.scanned_at ? seatsOf(r) : 0);
   const entryCount = (r) => (seatsOf(r) > 1 ? `${enteredOf(r)}/${seatsOf(r)} entrés` : "");
   const ticketUrl = (r) => new URL(`billet.html?t=${r.ticket_token}`, location.href).href;
@@ -307,7 +312,8 @@
   }
 
   const matches = {
-    reservations: (r) => (!filter || (filter === "attente" ? r.liste_attente : r.statut === filter && !r.liste_attente))
+    reservations: (r) => (!filter || (filter === "attente" ? r.liste_attente && !r.annulee_le
+      : filter === "annulee" ? !!r.annulee_le : r.statut === filter && !r.liste_attente && !r.annulee_le))
       && (!eventFilter || r.event_id === eventFilter),
     evenements: (e) => !filter || (filter === "masques" ? !e.publie : filter === "passes" ? isPastEvent(e) : !isPastEvent(e)),
     photos: (r) => !filter || r.statut === filter,
@@ -323,21 +329,23 @@
   const cards = {
     reservations: (r) => `
       <article class="admin-card" data-id="${esc(r.id)}">
-        <div class="admin-card-head"><span class="admin-ref">${esc(r.reference)}</span>${isVip(r) ? tag("VIP", "vip") : ""}${r.liste_attente ? tag("Liste d'attente", "wait") : badge(r.statut)}${r.scanned_at ? tag(enteredOf(r) < seatsOf(r) ? entryCount(r) : seatsOf(r) > 1 ? "Groupe entré" : "Entré", "ok") : ""}<time>${when(r.created_at)}</time></div>
+        <div class="admin-card-head"><span class="admin-ref">${esc(r.reference)}</span>${isVip(r) ? tag("VIP", "vip") : ""}${r.annulee_le ? tag("Annulée par le client", "no") : r.liste_attente ? tag(`Liste d'attente · n° ${waitPos(r)}`, "wait") : badge(r.statut)}${r.scanned_at ? tag(enteredOf(r) < seatsOf(r) ? entryCount(r) : seatsOf(r) > 1 ? "Groupe entré" : "Entré", "ok") : ""}<time>${when(r.created_at)}</time></div>
         <h3>${esc(r.event_title)}</h3>
         <dl class="admin-facts">
           <div><dt>Client</dt><dd>${esc(r.prenom)} ${esc(r.nom)}${seatsOf(r) > 1 ? ` · <b>${seatsOf(r)} places</b>` : ""}</dd></div>
           <div><dt>Téléphone</dt><dd><a href="tel:${esc(r.telephone)}">${esc(r.telephone)}</a></dd></div>
           <div><dt>E-mail</dt><dd>${esc(r.email)}</dd></div>
           <div><dt>Paiement</dt><dd>${esc(payLabel(r.moyen_paiement))} · ${esc(api.price(Number(r.montant)))}${r.code_promo ? ` · code ${esc(r.code_promo)}` : ""}</dd></div>
+          ${r.annulee_le ? `<div><dt>Annulation</dt><dd>${when(r.annulee_le)}${Number(r.montant) > 0 && r.recu_path ? " · paiement reçu, voir le remboursement" : ""}</dd></div>` : ""}
           ${r.scanned_at ? `<div><dt>Entrée</dt><dd>${when(r.scanned_at)}${seatsOf(r) > 1 ? ` · ${entryCount(r)}${r.derniere_entree && r.derniere_entree !== r.scanned_at ? `, dernière à ${new Date(r.derniere_entree).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}` : ""}</dd></div>` : ""}
         </dl>
         <div class="admin-actions">
           ${r.recu_path ? btn("receipt", "Voir le reçu") : ""}
-          ${r.liste_attente ? btn("waitlist-accept", "Donner une place", "primary") : r.statut !== "confirmee" ? btn("set", "Confirmer", "primary", ' data-value="confirmee"') : ""}
+          ${r.annulee_le ? "" : r.liste_attente ? btn("waitlist-accept", "Donner une place", "primary") : r.statut !== "confirmee" ? btn("set", "Confirmer", "primary", ' data-value="confirmee"') : ""}
           ${r.statut !== "refusee" ? btn("set", "Refuser", "danger", ' data-value="refusee"') : ""}
-          ${r.liste_attente ? waBtn(clientWa(r.telephone, `Bonjour ${r.prenom}, une place s'est libérée pour « ${r.event_title} ». Répondez à ce message pour la réserver. BJA HOUSE`), "Prévenir sur WhatsApp") : ""}
-          ${r.statut === "en_attente" ? "" : waBtn(clientWa(r.telephone, r.statut === "refusee" ? refuseMsg(r) : confirmMsg(r)), r.statut === "refusee" ? "Prévenir sur WhatsApp" : "Renvoyer le billet sur WhatsApp")}
+          ${r.annulee_le ? waBtn(clientWa(r.telephone, `Bonjour ${r.prenom}, nous avons bien reçu l'annulation de votre réservation ${r.reference} pour « ${r.event_title} ».${Number(r.montant) > 0 && r.recu_path ? " Nous revenons vers vous pour le remboursement." : ""} BJA HOUSE`), "Répondre sur WhatsApp")
+            : r.liste_attente ? waBtn(clientWa(r.telephone, `Bonjour ${r.prenom}, une place s'est libérée pour « ${r.event_title} ». Répondez à ce message pour la réserver. BJA HOUSE`), "Prévenir sur WhatsApp") : ""}
+          ${r.statut === "en_attente" || r.annulee_le ? "" : waBtn(clientWa(r.telephone, r.statut === "refusee" ? refuseMsg(r) : confirmMsg(r)), r.statut === "refusee" ? "Prévenir sur WhatsApp" : "Renvoyer le billet sur WhatsApp")}
           ${r.statut === "confirmee" && !r.liste_attente ? btn("copy-ticket", "Copier le lien du billet") : ""}
           ${btn("delete", "Supprimer", "ghost-danger")}
         </div>
@@ -347,7 +355,8 @@
       const resa = data.reservations.filter((r) => r.event_id === e.id);
       const ok = sumSeats(resa.filter((r) => r.statut === "confirmee" && !r.liste_attente));
       const wait = sumSeats(resa.filter((r) => r.statut === "en_attente" && !r.liste_attente));
-      const queue = sumSeats(resa.filter((r) => r.liste_attente));
+      const queue = sumSeats(resa.filter(inQueue));
+      const queued = resa.filter(inQueue).length;
       const taken = sumSeats(resa.filter((r) => !r.liste_attente && r.statut !== "refusee"));
       const takenVip = sumSeats(resa.filter((r) => isVip(r) && !r.liste_attente && r.statut !== "refusee"));
       return `
@@ -363,9 +372,12 @@
           <div><dt>Lieu</dt><dd>${esc(e.lieu || "—")}</dd></div>
           <div><dt>Prix</dt><dd>${esc(api.price(Number(e.prix)))}${e.prix_vip != null ? ` · VIP ${esc(api.price(Number(e.prix_vip)))}` : ""}</dd></div>
           <div><dt>Inscrits</dt><dd>${ok} confirmé${ok > 1 ? "s" : ""}${wait ? `, ${wait} à vérifier` : ""}${queue ? `, ${queue} en liste d'attente` : ""}</dd></div>
+          ${e.fin_ventes_heures != null ? `<div><dt>Fin des ventes</dt><dd>${e.fin_ventes_heures ? `${e.fin_ventes_heures} h avant le début` : "Au début de l'événement"}</dd></div>` : ""}
           <div><dt>Places</dt><dd>${e.places ? `${Math.min(taken, e.places)} / ${e.places} prises${taken >= e.places ? " · complet" : ""}` : "Illimitées"}${e.prix_vip != null ? ` · VIP ${takenVip}${e.places_vip ? ` / ${e.places_vip}` : ""}` : ""}</dd></div>
         </dl>
+        ${e.places && taken < e.places && queued && !isPastEvent(e) ? `<p class="admin-alert">${e.places - taken} place${e.places - taken > 1 ? "s" : ""} libre${e.places - taken > 1 ? "s" : ""} et ${queued} personne${queued > 1 ? "s" : ""} en liste d'attente : prévenez-les dans l'ordre.</p>` : ""}
         <div class="admin-actions">
+          ${e.places && taken < e.places && queued && !isPastEvent(e) ? btn("event-waitlist", "Voir la liste d'attente", "primary") : ""}
           ${btn("event-edit", "Modifier", "primary")}
           ${btn("toggle-publie", e.publie ? "Masquer" : "Mettre en ligne")}
           ${resa.length ? btn("event-resa", "Voir les inscrits") : ""}
@@ -533,6 +545,7 @@
       return;
     }
     const items = data[tab].filter(matches[tab]);
+    if (tab === "reservations" && filter === "attente") items.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // n° 1 en premier
     list.className = `admin-list${tab === "photos" ? " admin-list--photos" : ""}`;
     list.innerHTML = items.length ? items.map(cards[tab]).join("") : `<p class="admin-empty">${EMPTY[tab]}</p>`;
   }
@@ -622,6 +635,7 @@
     if (action === "member-edit") return memberEditor(item);
     if (action === "event-resa") { eventFilter = item.id; return goTo("reservations", ""); }
     if (action === "event-remind") { eventFilter = item.id; return goTo("rappels", ""); }
+    if (action === "event-waitlist") { eventFilter = item.id; return goTo("reservations", "attente"); }
     if (action === "code-edit") return codeEditor(item);
     if (action === "copy-ticket") return copy(ticketUrl(item), "lien");
     if (action === "copy-code") return copy(item.code, "code");
@@ -707,7 +721,7 @@
       ["Événement", (r) => r.event_title], ["Prénom", (r) => r.prenom], ["Nom", (r) => r.nom],
       ["Téléphone", (r) => r.telephone], ["E-mail", (r) => r.email], ["Paiement", (r) => payLabel(r.moyen_paiement)],
       ["Places", (r) => seatsOf(r)], ["Montant", (r) => String(r.montant).replace(".", ",")], ["Code promo", (r) => r.code_promo],
-      ["Statut", (r) => (r.liste_attente ? "Liste d'attente" : STATUS[r.statut][0])],
+      ["Statut", (r) => (r.annulee_le ? "Annulée par le client" : r.liste_attente ? "Liste d'attente" : STATUS[r.statut][0])],
       ["Entrée", (r) => (r.scanned_at ? new Date(r.scanned_at).toLocaleString("fr-FR") : "")],
       ["Entrés", (r) => enteredOf(r)],
       ["Billet", (r) => (isVip(r) ? "VIP" : "Standard")],
@@ -823,6 +837,8 @@
         <div class="field"><label for="ed-places">Nombre de places</label><input id="ed-places" name="places" type="number" min="1" step="1" inputmode="numeric" placeholder="Illimité" value="${v("places")}">
           <span class="admin-hint">Vide = illimité. Une fois complet, les inscriptions passent en liste d'attente.</span></div>
       </div>
+      <div class="field"><label for="ed-fin-ventes">Fin des ventes (heures avant le début)</label><input id="ed-fin-ventes" name="fin_ventes_heures" type="number" min="0" max="168" step="1" inputmode="numeric" placeholder="Jusqu'au début" value="${v("fin_ventes_heures")}">
+        <span class="admin-hint">Ex. 2 = les réservations ferment 2 h avant. Vide = jusqu'au début.</span></div>
       <div class="form-row">
         <div class="field"><label for="ed-prix-vip">Prix VIP (${esc(cfg.currency)})</label><input id="ed-prix-vip" name="prix_vip" type="number" min="0" step="1" inputmode="numeric" placeholder="Pas de VIP" value="${v("prix_vip")}">
           <span class="admin-hint">Vide = pas de billets VIP.</span></div>
@@ -842,10 +858,12 @@
           places: f.places.value ? Math.trunc(Number(f.places.value)) : null,
           prix_vip: f.prix_vip.value === "" ? null : Math.max(0, Number(f.prix_vip.value) || 0),
           places_vip: f.places_vip.value ? Math.trunc(Number(f.places_vip.value)) : null,
+          fin_ventes_heures: f.fin_ventes_heures.value === "" ? null : Math.trunc(Number(f.fin_ventes_heures.value)),
         };
         if (row.titre.length < 2) return "Indiquez un titre.";
         if (row.places !== null && !(row.places >= 1)) return "Le nombre de places doit être d'au moins 1 (ou vide pour illimité).";
         if (!row.debut) return "Indiquez la date et l'heure.";
+        if (row.fin_ventes_heures !== null && !(row.fin_ventes_heures >= 0 && row.fin_ventes_heures <= 168)) return "La fin des ventes doit être entre 0 et 168 heures avant le début.";
         if (row.places_vip !== null && !(row.places_vip >= 1)) return "Le nombre de places VIP doit être d'au moins 1 (ou vide).";
         if (row.places_vip !== null && row.prix_vip === null) return "Indiquez le prix VIP, ou videz les places VIP.";
         if (row.places_vip !== null && row.places !== null && row.places_vip > row.places) return "Les places VIP ne peuvent pas dépasser le nombre total de places.";
@@ -1334,7 +1352,7 @@
     data.reservations.forEach((r) => {
       const x = row(r.event_id);
       const n = seatsOf(r);
-      if (r.liste_attente) x.queue += n;
+      if (inQueue(r)) x.queue += n;
       else if (r.statut === "confirmee") { x.ok += n; x.revenue += Number(r.montant || 0); }
       else if (r.statut === "en_attente") x.wait += n;
       x.in += enteredOf(r);

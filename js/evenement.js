@@ -67,7 +67,9 @@ window.BJAApi.ready.then(() => {
       <div><dt>Prix</dt><dd class="price price--big">${esc(api.price(ev.price))}</dd></div>
       ${ev.priceVip != null ? `<div><dt>VIP</dt><dd class="price price--big">${!past && ev.remainingVip === 0 ? "Complet" : esc(api.price(ev.priceVip))}</dd></div>` : ""}
     </dl>
+    ${!past && ev.salesEndHours != null ? `<p class="event-sales-end">${api.salesClosed(ev) ? "Réservations fermées." : `Réservations jusqu'au ${esc(api.salesEnd(ev).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }))}.`}</p>` : ""}
     ${past ? `<span class="tag">Terminé</span>`
+      : api.salesClosed(ev) ? `<span class="tag">Réservations fermées</span>`
       : `<a class="btn btn--primary btn--block" href="reservation.html#${encodeURIComponent(ev.id)}">${full ? "Rejoindre la liste d'attente" : "Réserver ma place"} <span class="arrow" aria-hidden="true">→</span></a>`}
     ${past ? "" : `<div class="event-share">
       <div class="event-share-row">

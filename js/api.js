@@ -69,6 +69,9 @@ window.BJAApi = (() => {
     new Date(ev.date).toLocaleDateString("fr-FR", opts);
 
   const isPast = (ev) => new Date(ev.date).getTime() + 6 * 3600e3 < Date.now();
+  // Fin des ventes : heure limite de réservation (null = pas de limite avant le début)
+  const salesEnd = (ev) => (ev.salesEndHours == null ? null : new Date(new Date(ev.date).getTime() - ev.salesEndHours * 3600e3));
+  const salesClosed = (ev) => { const end = salesEnd(ev); return !!end && Date.now() > end.getTime(); };
 
   const findEvent = (id) => cfg.events.find((e) => e.id === id);
 
@@ -96,6 +99,7 @@ window.BJAApi = (() => {
     place: r.lieu, price: Number(r.prix), desc: r.description,
     image: r.image_path ? publicUrl("site", r.image_path) : null,
     places: r.places ?? null, remaining: null,
+    salesEndHours: r.fin_ventes_heures ?? null,
     priceVip: r.prix_vip == null ? null : Number(r.prix_vip), placesVip: r.places_vip ?? null, remainingVip: null,
   });
 
@@ -124,5 +128,5 @@ window.BJAApi = (() => {
     }
   })();
 
-  return { isReady, ready, rpc, insert, select, upload, publicUrl, uuid, reference, extension, whatsappLink, price, eventDate, isPast, findEvent, esc };
+  return { isReady, ready, rpc, insert, select, upload, publicUrl, uuid, reference, extension, whatsappLink, price, eventDate, isPast, salesEnd, salesClosed, findEvent, esc };
 })();

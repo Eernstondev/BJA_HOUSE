@@ -18,13 +18,15 @@ window.BJAApi.ready.then(() => {
     const month = d.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "");
     const paid = ev.price > 0;
     const full = ev.remaining === 0;
+    const closed = api.salesClosed(ev);
     const page = `evenement.html#${encodeURIComponent(ev.id)}`;
     const rating = ratings[ev.id];
     const action = isPast
       ? `<span class="tag">Terminé</span>${rating ? `<span class="event-rating">★ ${rating.avg.toFixed(1).replace(".", ",")} · ${rating.n} avis</span>` : ""}
          <a class="btn btn--outline btn--sm" href="${page}">${rating ? "Voir les avis" : "Laisser un avis"}</a>`
-      : `${ev.remaining != null ? `<span class="seats${full ? " seats--full" : ev.remaining <= 10 ? " seats--low" : ""}">${full ? "Complet" : `${ev.remaining} place${ev.remaining > 1 ? "s" : ""} restante${ev.remaining > 1 ? "s" : ""}`}</span>` : ""}
-         <a class="btn btn--primary" href="reservation.html#${encodeURIComponent(ev.id)}">${full ? "Liste d'attente" : "S'inscrire"} <span class="arrow" aria-hidden="true">→</span></a>
+      : `${ev.remaining != null && !closed ? `<span class="seats${full ? " seats--full" : ev.remaining <= 10 ? " seats--low" : ""}">${full ? "Complet" : `${ev.remaining} place${ev.remaining > 1 ? "s" : ""} restante${ev.remaining > 1 ? "s" : ""}`}</span>` : ""}
+         ${closed ? `<span class="tag">Réservations fermées</span>`
+           : `<a class="btn btn--primary" href="reservation.html#${encodeURIComponent(ev.id)}">${full ? "Liste d'attente" : "S'inscrire"} <span class="arrow" aria-hidden="true">→</span></a>`}
          <a class="event-more" href="${page}">Détails</a>`;
     return `
       <article class="event${isPast ? " is-past" : ""}" data-cat="${esc(ev.cat)}">

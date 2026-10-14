@@ -2,9 +2,6 @@
 (() => {
   "use strict";
 
-  // Adresse d'envoi du formulaire (ex. https://formspree.io/f/xxxxxxx). Vide = mode démonstration.
-  const FORM_ENDPOINT = "";
-
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -170,73 +167,6 @@
       if (e.key === "Escape") close();
       if (e.key === "ArrowLeft") step(-1);
       if (e.key === "ArrowRight") step(1);
-    });
-  }
-
-  /* ---------- Formulaire de contact ---------- */
-  const form = $("#contact-form");
-  if (form) {
-    const status = $(".form-status", form);
-    const rules = {
-      nom: (v) => (v.trim().length >= 2 ? "" : "Indiquez votre nom."),
-      email: (v) => (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? "" : "Adresse e-mail invalide."),
-      sujet: (v) => (v ? "" : "Choisissez un sujet."),
-      message: (v) => (v.trim().length >= 10 ? "" : "Votre message doit faire au moins 10 caractères."),
-      consentement: (_, el) => (el.checked ? "" : "Merci d'accepter d'être recontacté."),
-    };
-    const check = (el) => {
-      const rule = rules[el.name];
-      if (!rule) return true;
-      const msg = rule(el.value, el);
-      const field = el.closest(".field, .consent");
-      const err = $(`#${el.id}-error`);
-      if (field) field.classList.toggle("invalid", Boolean(msg));
-      if (err) err.textContent = msg;
-      el.setAttribute("aria-invalid", String(Boolean(msg)));
-      return !msg;
-    };
-    $$("input, select, textarea", form).forEach((el) =>
-      el.addEventListener(el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "blur", () => check(el))
-    );
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const fields = $$("input, select, textarea", form).filter((el) => rules[el.name]);
-      const valid = fields.map(check).every(Boolean);
-      status.hidden = false;
-      status.classList.remove("is-error");
-      if (!valid) {
-        status.classList.add("is-error");
-        status.textContent = "Certains champs sont à corriger.";
-        fields.find((el) => el.getAttribute("aria-invalid") === "true")?.focus();
-        return;
-      }
-      if (form.website.value) return; // champ piège anti-spam
-
-      const prenom = form.nom.value.trim().split(/\s+/)[0];
-      if (!FORM_ENDPOINT) {
-        status.textContent = `Merci ${prenom} ! Formulaire en mode démonstration : il sera relié à notre boîte mail à la mise en ligne.`;
-        form.reset();
-        return;
-      }
-      const btn = $("button[type=submit]", form);
-      btn.disabled = true;
-      status.textContent = "Envoi en cours…";
-      try {
-        const res = await fetch(FORM_ENDPOINT, {
-          method: "POST",
-          headers: { Accept: "application/json" },
-          body: new FormData(form),
-        });
-        if (!res.ok) throw new Error(String(res.status));
-        status.textContent = `Merci ${prenom}, votre message est bien parti. On vous répond rapidement.`;
-        form.reset();
-      } catch {
-        status.classList.add("is-error");
-        status.textContent = "L'envoi a échoué. Réessayez ou écrivez-nous directement par e-mail.";
-      } finally {
-        btn.disabled = false;
-      }
     });
   }
 

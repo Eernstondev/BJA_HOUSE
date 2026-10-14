@@ -37,7 +37,7 @@ Page non listée dans le menu, réservée aux comptes admin.
 
 Depuis le tableau de bord, l'admin gère tout le site :
 - **Réservations** : voir le reçu, confirmer ou refuser (WhatsApp s'ouvre aussitôt vers la personne avec son billet ou le refus), gérer la liste d'attente, filtrer par événement, exporter pour Excel, supprimer.
-- **Scanner** : à l'entrée, ouvrir l'espace admin sur le téléphone et scanner le QR code du billet (ou taper sa référence). Chaque billet n'est accepté qu'une fois. La caméra demande le site en ligne (https). Billet de groupe : le même QR code sert à tout le groupe, et à chaque scan l'admin choisit combien de personnes entrent (ex. 3 sur 10), jusqu'à ce que tout le groupe soit entré.
+- **Scanner** : à l'entrée, ouvrir l'espace admin sur le téléphone et scanner le QR code du billet (ou taper sa référence). Un billet d'une place n'est accepté qu'une fois. La caméra demande le site en ligne (https). Billet de groupe : le même QR code sert à tout le groupe, et à chaque scan l'admin choisit combien de personnes entrent (ex. 3 sur 10), jusqu'à ce que tout le groupe soit entré.
 - **Rappels** : les inscrits confirmés d'un événement à venir ; la veille, leur envoyer un rappel WhatsApp un par un avec le lien de leur billet (aussi via « Rappel la veille » sur la carte de l'événement).
 - **Entrées** : les personnes scannées avec leur heure d'arrivée, par événement ; sélectionner et leur envoyer un remerciement sur WhatsApp, ou copier leurs numéros.
 - **Événements** : créer, modifier (date, prix, lieu, nombre de places, image), masquer ou supprimer ; voir les inscrits. Quand un événement est complet, les inscriptions passent en liste d'attente.

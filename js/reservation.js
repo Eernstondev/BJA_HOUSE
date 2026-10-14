@@ -81,7 +81,7 @@
     nom: () => (value("nom") ? "" : "Indiquez votre nom."),
     email: () => (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value("email")) ? "" : "Adresse e-mail invalide."),
     telephone: () => (/^\+?[0-9 ().-]{8,20}$/.test(value("telephone")) && value("telephone").replace(/\D/g, "").length >= 8
-      ? "" : "Numéro invalide (8 chiffres minimum, ex. +33 6 12 34 56 78)."),
+      ? "" : "Numéro invalide (8 chiffres minimum, ex. +509 37 00 0000)."),
     paiement: () => (!paid || form.querySelector("input[name=paiement]:checked") ? "" : "Choisissez un moyen de paiement."),
     recu: () => {
       if (!paid) return "";

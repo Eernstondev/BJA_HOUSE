@@ -53,75 +53,15 @@
 
 <section class="section">
   <div class="wrap">
-    <div class="filters" role="group" aria-label="Filtrer par catégorie" data-filter-group=".gallery .tile">
+    <div class="filters" role="group" aria-label="Filtrer par catégorie" data-filter-group=".gallery .tile" data-empty-target=".gallery-empty">
       <button class="filter" type="button" data-filter="tout" aria-pressed="true">Tout</button>
       <button class="filter" type="button" data-filter="soirees" aria-pressed="false">Soirées</button>
       <button class="filter" type="button" data-filter="sport" aria-pressed="false">Sport</button>
       <button class="filter" type="button" data-filter="sorties" aria-pressed="false">Sorties</button>
       <button class="filter" type="button" data-filter="ateliers" aria-pressed="false">Ateliers</button>
     </div>
-    <div class="gallery">
-      <button class="tile tile--tall" type="button" data-cat="soirees" style="--tone-a:#1d3fa8;--tone-b:#11286e">
-        <img src="assets/galerie/photo-01.jpg" alt="Soirée de lancement, Saison 2025" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-01.jpg</span>
-        <span class="tile-caption"><b>Soirée de lancement</b><span>Saison 2025</span></span>
-      </button>
-      <button class="tile" type="button" data-cat="sport" style="--tone-a:#4a5163;--tone-b:#1d3fa8">
-        <img src="assets/galerie/photo-02.jpg" alt="Tournoi inter-quartiers, Printemps 2026" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-02.jpg</span>
-        <span class="tile-caption"><b>Tournoi inter-quartiers</b><span>Printemps 2026</span></span>
-      </button>
-      <button class="tile tile--wide" type="button" data-cat="sorties" style="--tone-a:#2b4fc4;--tone-b:#767d90">
-        <img src="assets/galerie/photo-03.jpg" alt="Journée à la plage, Été 2026" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-03.jpg</span>
-        <span class="tile-caption"><b>Journée à la plage</b><span>Été 2026</span></span>
-      </button>
-      <button class="tile" type="button" data-cat="ateliers" style="--tone-a:#11286e;--tone-b:#4a5163">
-        <img src="assets/galerie/photo-04.jpg" alt="Atelier prise de parole, Mars 2026" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-04.jpg</span>
-        <span class="tile-caption"><b>Atelier prise de parole</b><span>Mars 2026</span></span>
-      </button>
-      <button class="tile" type="button" data-cat="soirees" style="--tone-a:#1d3fa8;--tone-b:#2a3550">
-        <img src="assets/galerie/photo-05.jpg" alt="Gala 2025, Décembre 2025" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-05.jpg</span>
-        <span class="tile-caption"><b>Gala 2025</b><span>Décembre 2025</span></span>
-      </button>
-      <button class="tile tile--tall" type="button" data-cat="sorties" style="--tone-a:#767d90;--tone-b:#11286e">
-        <img src="assets/galerie/photo-06.jpg" alt="Pique-nique de rentrée, Septembre 2026" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-06.jpg</span>
-        <span class="tile-caption"><b>Pique-nique de rentrée</b><span>Septembre 2026</span></span>
-      </button>
-      <button class="tile" type="button" data-cat="sport" style="--tone-a:#2a3550;--tone-b:#1d3fa8">
-        <img src="assets/galerie/photo-07.jpg" alt="Session basket, Avril 2026" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-07.jpg</span>
-        <span class="tile-caption"><b>Session basket</b><span>Avril 2026</span></span>
-      </button>
-      <button class="tile tile--wide" type="button" data-cat="ateliers" style="--tone-a:#1d3fa8;--tone-b:#4a5163">
-        <img src="assets/galerie/photo-08.jpg" alt="Atelier vidéo et réseaux, Mai 2026" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-08.jpg</span>
-        <span class="tile-caption"><b>Atelier vidéo et réseaux</b><span>Mai 2026</span></span>
-      </button>
-      <button class="tile" type="button" data-cat="soirees" style="--tone-a:#4a5163;--tone-b:#11286e">
-        <img src="assets/galerie/photo-09.jpg" alt="Karaoké BJA, Février 2026" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-09.jpg</span>
-        <span class="tile-caption"><b>Karaoké BJA</b><span>Février 2026</span></span>
-      </button>
-      <button class="tile" type="button" data-cat="sorties" style="--tone-a:#11286e;--tone-b:#767d90">
-        <img src="assets/galerie/photo-10.jpg" alt="Visite culturelle, Janvier 2026" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-10.jpg</span>
-        <span class="tile-caption"><b>Visite culturelle</b><span>Janvier 2026</span></span>
-      </button>
-      <button class="tile" type="button" data-cat="sport" style="--tone-a:#2b4fc4;--tone-b:#2a3550">
-        <img src="assets/galerie/photo-11.jpg" alt="Course solidaire, Juin 2026" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-11.jpg</span>
-        <span class="tile-caption"><b>Course solidaire</b><span>Juin 2026</span></span>
-      </button>
-      <button class="tile" type="button" data-cat="soirees" style="--tone-a:#1d3fa8;--tone-b:#767d90">
-        <img src="assets/galerie/photo-12.jpg" alt="Anniversaire du groupe, Novembre 2025" loading="lazy">
-        <span class="tile-file">assets/galerie/photo-12.jpg</span>
-        <span class="tile-caption"><b>Anniversaire du groupe</b><span>Novembre 2025</span></span>
-      </button>
-    </div>
+    <div class="gallery"></div>
+    <p class="events-empty gallery-empty">Pas encore de photos ici. Elles arrivent après nos prochains événements !</p>
   </div>
 </section>
 

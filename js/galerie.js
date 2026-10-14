@@ -16,15 +16,10 @@ window.BJAApi.ready.then(() => {
     return arr;
   };
 
-  // Photos du site : fichiers de la galerie qui existent vraiment, plus la photo d'accueil
+  // Sans photo validée, le bandeau montre la photo d'accueil
   const localSlides = () => {
     const candidates = [
       { src: "assets/hero.jpg", title: "BJA HOUSE", sub: "Nos rencontres" },
-      ...$$(".tile", gallery).map((t) => ({
-        src: $("img", t).getAttribute("src"),
-        title: $(".tile-caption b", t).textContent,
-        sub: $(".tile-caption span", t).textContent,
-      })),
     ];
     return Promise.all(candidates.map((c) => new Promise((resolve) => {
       const probe = new Image();
@@ -46,7 +41,7 @@ window.BJAApi.ready.then(() => {
         cat: r.categorie,
       }));
     } catch {
-      return []; // la galerie locale reste affichée
+      return [];
     }
   }
 
@@ -58,6 +53,7 @@ window.BJAApi.ready.then(() => {
         <span class="tile-caption"><b>${api.esc(p.title)}</b><span>${api.esc(p.sub)}</span></span>
       </button>`).join("");
     gallery.insertAdjacentHTML("afterbegin", html);
+    $(".gallery-empty").hidden = true;
     const active = $(".filter[aria-pressed=true]");
     if (active && active.dataset.filter !== "tout") active.click();
   }

@@ -16,7 +16,7 @@ boutons Partager et Ajouter au calendrier), `billet.html` (billet avec QR code),
    - `currency`, `paymentMethods` et `events` (prix, lieux, dates).
 3. Déployer le dossier tel quel (GitHub Pages, Vercel ou Netlify).
 
-**Adresse du site** : l'aperçu des liens partagés (image `assets/og.jpg`), `sitemap.xml` et `robots.txt` utilisent `https://eernstondev.github.io/BJA_HOUSE/`. Avec un nom de domaine, remplacer cette adresse partout (rechercher-remplacer dans les fichiers `.html`, `sitemap.xml` et `robots.txt`).
+**Adresse du site** : l'aperçu des liens partagés (image `assets/og.jpg`), `sitemap.xml` et `robots.txt` utilisent `https://bja-house.vercel.app/` (projet Vercel « bja-house »). Avec un nom de domaine, remplacer cette adresse partout (rechercher-remplacer dans les fichiers `.html`, `sitemap.xml` et `robots.txt`).
 
 Sans Supabase configuré, les formulaires fonctionnent en mode démonstration : rien n'est enregistré.
 

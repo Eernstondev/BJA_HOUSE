@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://eernstondev.github.io/BJA_HOUSE/</loc><lastmod>2026-10-14</lastmod><priority>1.0</priority></url>
-  <url><loc>https://eernstondev.github.io/BJA_HOUSE/activites.html</loc><lastmod>2026-10-14</lastmod><priority>0.9</priority></url>
-  <url><loc>https://eernstondev.github.io/BJA_HOUSE/galerie.html</loc><lastmod>2026-10-14</lastmod><priority>0.8</priority></url>
-  <url><loc>https://eernstondev.github.io/BJA_HOUSE/a-propos.html</loc><lastmod>2026-10-14</lastmod><priority>0.7</priority></url>
-  <url><loc>https://eernstondev.github.io/BJA_HOUSE/contact.html</loc><lastmod>2026-10-14</lastmod><priority>0.7</priority></url>
-  <url><loc>https://eernstondev.github.io/BJA_HOUSE/reservation.html</loc><lastmod>2026-10-14</lastmod><priority>0.6</priority></url>
-  <url><loc>https://eernstondev.github.io/BJA_HOUSE/partager.html</loc><lastmod>2026-10-14</lastmod><priority>0.4</priority></url>
-  <url><loc>https://eernstondev.github.io/BJA_HOUSE/confidentialite.html</loc><lastmod>2026-10-14</lastmod><priority>0.2</priority></url>
+  <url><loc>https://bja-house.vercel.app/</loc><lastmod>2026-10-14</lastmod><priority>1.0</priority></url>
+  <url><loc>https://bja-house.vercel.app/activites.html</loc><lastmod>2026-10-14</lastmod><priority>0.9</priority></url>
+  <url><loc>https://bja-house.vercel.app/galerie.html</loc><lastmod>2026-10-14</lastmod><priority>0.8</priority></url>
+  <url><loc>https://bja-house.vercel.app/a-propos.html</loc><lastmod>2026-10-14</lastmod><priority>0.7</priority></url>
+  <url><loc>https://bja-house.vercel.app/contact.html</loc><lastmod>2026-10-14</lastmod><priority>0.7</priority></url>
+  <url><loc>https://bja-house.vercel.app/reservation.html</loc><lastmod>2026-10-14</lastmod><priority>0.6</priority></url>
+  <url><loc>https://bja-house.vercel.app/partager.html</loc><lastmod>2026-10-14</lastmod><priority>0.4</priority></url>
+  <url><loc>https://bja-house.vercel.app/confidentialite.html</loc><lastmod>2026-10-14</lastmod><priority>0.2</priority></url>
 </urlset>

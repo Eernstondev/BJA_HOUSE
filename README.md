@@ -4,7 +4,8 @@ Site vitrine de BJA HOUSE, en HTML, CSS et JavaScript sans framework. Réalisé 
 
 ## Pages
 `index.html` (accueil), `galerie.html`, `activites.html`, `a-propos.html`, `contact.html`,
-`reservation.html` (réservation d'une activité) et `partager.html` (envoi de photos pour la galerie).
+`reservation.html` (réservation d'une activité), `evenement.html` (détails, places restantes et avis),
+`billet.html` (billet avec QR code) et `partager.html` (envoi de photos pour la galerie).
 
 ## Mise en route
 1. Créer un projet sur [supabase.com](https://supabase.com), puis exécuter `supabase/schema.sql` dans **SQL Editor**.
@@ -32,11 +33,20 @@ Page non listée dans le menu, réservée aux comptes admin.
 4. Conseillé : Authentication → Sign In / Providers → désactiver « Allow new users to sign up ».
 
 Depuis le tableau de bord, l'admin gère tout le site :
-- **Réservations** : voir le reçu, confirmer, refuser, prévenir le client sur WhatsApp, filtrer par événement, exporter pour Excel, supprimer.
-- **Événements** : créer, modifier (date, prix, lieu, image), masquer ou supprimer ; voir les inscrits.
+- **Réservations** : voir le reçu, confirmer, refuser, envoyer le billet sur WhatsApp, gérer la liste d'attente, filtrer par événement, exporter pour Excel, supprimer.
+- **Scanner** : à l'entrée, ouvrir l'espace admin sur le téléphone et scanner le QR code du billet (ou taper sa référence). Chaque billet n'est accepté qu'une fois. La caméra demande le site en ligne (https).
+- **Événements** : créer, modifier (date, prix, lieu, nombre de places, image), masquer ou supprimer ; voir les inscrits. Quand un événement est complet, les inscriptions passent en liste d'attente.
 - **Photos** : publier ou refuser les photos envoyées, ajouter directement des photos à la galerie, supprimer.
 - **Membres** : ajouter, modifier (photo, rôle, présentation, ordre), masquer ou supprimer.
 - **Messages** : lire, répondre sur WhatsApp, marquer comme traité, supprimer.
+- **Avis** : notes et commentaires laissés après un événement (avec la référence du billet) ; masquer ou supprimer.
+- **Abonnés** : e-mails et numéros WhatsApp inscrits aux alertes ; exporter, copier la liste pour un envoi groupé.
+- **Codes promo** : pourcentage ou montant, pour un événement ou tous, avec limite d'utilisations et date d'expiration.
+- **Statistiques** : inscriptions, recettes et notes par événement, en graphiques.
 - **Réglages** : numéro WhatsApp, e-mail, Instagram, TikTok, numéros et noms MonCash/NatCash.
+
+Sécurité : le prix, les places, les codes promo, le billet et la validation à l'entrée sont calculés dans la base
+(fonctions `reserver`, `verifier_code`, `billet`, `valider_entree`, `laisser_avis`) ; le navigateur ne peut ni lire
+les réservations des autres, ni voir les codes promo, ni valider un billet sans être admin.
 
 Le site lit ces données dans Supabase ; `js/config.js` ne sert que de secours si la base ne répond pas.

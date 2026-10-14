@@ -21,10 +21,10 @@ create table if not exists public.reservations (
 
 alter table public.reservations enable row level security;
 
--- Le public peut seulement créer une réservation « en attente ». Aucune lecture publique.
+-- Aucun accès public direct : les réservations passent par la fonction public.reserver()
+-- (plus bas), qui calcule le prix, les places restantes et le code promo côté serveur.
 drop policy if exists "reservations: creation publique" on public.reservations;
-create policy "reservations: creation publique" on public.reservations
-  for insert to anon with check (statut = 'en_attente');
+revoke insert, update, delete on public.reservations from anon;
 
 -- ============ Photos partagées ============
 create table if not exists public.photos (
@@ -172,6 +172,224 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
   ('site', 'site', true, 8388608, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
 
+-- ============ Billets, places limitées, codes promo, alertes, avis ============
+alter table public.reservations add column if not exists ticket_token  uuid not null default gen_random_uuid();
+alter table public.reservations add column if not exists liste_attente boolean not null default false;
+alter table public.reservations add column if not exists code_promo    text check (char_length(code_promo) <= 40);
+alter table public.reservations add column if not exists scanned_at    timestamptz;
+create unique index if not exists reservations_ticket_token_key on public.reservations (ticket_token);
+
+alter table public.evenements add column if not exists places integer check (places is null or places > 0); -- vide = illimité
+
+create table if not exists public.codes_promo (
+  code             text primary key check (code ~ '^[A-Z0-9_-]{3,40}$'),
+  created_at       timestamptz not null default now(),
+  type             text not null default 'pourcent' check (type in ('pourcent', 'montant')),
+  valeur           numeric(10,2) not null check (valeur > 0),
+  event_id         text references public.evenements (id) on delete cascade, -- vide = tous les événements
+  max_utilisations integer check (max_utilisations is null or max_utilisations > 0),
+  utilisations     integer not null default 0,
+  expire_le        timestamptz,
+  actif            boolean not null default true,
+  check (type <> 'pourcent' or valeur <= 100)
+);
+alter table public.codes_promo enable row level security; -- aucune lecture publique
+
+create table if not exists public.abonnes (
+  id         uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  email      text check (email is null or (char_length(email) <= 160 and email ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$')),
+  whatsapp   text check (whatsapp is null or whatsapp ~ '^[0-9]{8,15}$'),
+  check (email is not null or whatsapp is not null)
+);
+alter table public.abonnes enable row level security;
+create unique index if not exists abonnes_email_key on public.abonnes (lower(email));
+create unique index if not exists abonnes_whatsapp_key on public.abonnes (whatsapp);
+drop policy if exists "abonnes: inscription publique" on public.abonnes;
+create policy "abonnes: inscription publique" on public.abonnes for insert to anon with check (true);
+grant insert on public.abonnes to anon;
+
+create table if not exists public.avis (
+  id             uuid primary key default gen_random_uuid(),
+  created_at     timestamptz not null default now(),
+  event_id       text not null,
+  reservation_id uuid not null unique references public.reservations (id) on delete cascade,
+  auteur         text not null check (char_length(auteur) <= 90),
+  note           smallint not null check (note between 1 and 5),
+  commentaire    text not null default '' check (char_length(commentaire) <= 800),
+  publie         boolean not null default true
+);
+alter table public.avis enable row level security;
+drop policy if exists "avis: lecture publique" on public.avis;
+create policy "avis: lecture publique" on public.avis for select to anon using (publie);
+revoke select on public.avis from anon;
+grant select (id, created_at, event_id, auteur, note, commentaire) on public.avis to anon;
+
+-- Heure actuelle en Haïti (les dates des événements sont en heure locale)
+create or replace function public.maintenant_haiti() returns timestamp
+language sql stable set search_path = '' as $$ select (now() at time zone 'America/Port-au-Prince') $$;
+
+-- Places restantes par événement (seulement ceux qui ont un nombre de places)
+create or replace function public.places_restantes()
+returns table (event_id text, restantes integer)
+language sql stable security definer set search_path = '' as $$
+  select e.id, greatest(e.places - count(r.id)::int, 0)
+  from public.evenements e
+  left join public.reservations r on r.event_id = e.id and not r.liste_attente and r.statut <> 'refusee'
+  where e.publie and e.places is not null
+  group by e.id, e.places;
+$$;
+
+-- Prix d'un événement avec un code promo (sans consommer le code)
+create or replace function public.verifier_code(p_code text, p_event_id text)
+returns json language plpgsql stable security definer set search_path = '' as $$
+declare
+  ev public.evenements;
+  c  public.codes_promo;
+  final numeric;
+begin
+  select * into ev from public.evenements where id = p_event_id and publie;
+  if not found then return json_build_object('valide', false, 'message', 'Événement introuvable.'); end if;
+  select * into c from public.codes_promo where code = upper(trim(p_code));
+  if not found or not c.actif
+     or (c.event_id is not null and c.event_id <> ev.id)
+     or (c.expire_le is not null and c.expire_le < now())
+     or (c.max_utilisations is not null and c.utilisations >= c.max_utilisations) then
+    return json_build_object('valide', false, 'message', 'Ce code n''est pas valable pour cet événement.');
+  end if;
+  final := greatest(0, case when c.type = 'pourcent' then round(ev.prix * (1 - c.valeur / 100)) else ev.prix - c.valeur end);
+  return json_build_object('valide', true, 'code', c.code, 'prix_initial', ev.prix, 'prix_final', final,
+    'message', case when c.type = 'pourcent' then '-' || trim(to_char(c.valeur, 'FM999')) || ' %' else '-' || trim(to_char(c.valeur, 'FM999999')) || ' HTG' end);
+end $$;
+
+-- Réservation : vérifie l'événement, compte les places, applique le code promo,
+-- crée la référence et le billet. C'est la seule façon pour le public de réserver.
+create or replace function public.reserver(
+  p_event_id text, p_prenom text, p_nom text, p_email text, p_telephone text,
+  p_moyen_paiement text default null, p_recu_path text default null, p_code text default null)
+returns json language plpgsql security definer set search_path = '' as $$
+declare
+  ev      public.evenements;
+  pris    integer;
+  attente boolean := false;
+  prix    numeric;
+  v_code  text := nullif(upper(trim(coalesce(p_code, ''))), '');
+  promo   json;
+  ref     text;
+  tok     uuid := gen_random_uuid();
+  chars   constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+begin
+  -- verrou sur l'événement : deux réservations simultanées ne peuvent pas prendre la dernière place
+  select * into ev from public.evenements where id = p_event_id and publie for update;
+  if not found then raise exception 'Événement introuvable.'; end if;
+  if ev.debut < public.maintenant_haiti() - interval '6 hours' then raise exception 'Cet événement est terminé.'; end if;
+
+  if ev.places is not null then
+    select count(*) into pris from public.reservations
+    where event_id = ev.id and not liste_attente and statut <> 'refusee';
+    attente := pris >= ev.places;
+  end if;
+
+  prix := ev.prix;
+  if v_code is not null then
+    promo := public.verifier_code(v_code, ev.id);
+    if not (promo->>'valide')::boolean then raise exception '%', promo->>'message'; end if;
+    prix := (promo->>'prix_final')::numeric;
+    if not attente then
+      update public.codes_promo set utilisations = utilisations + 1
+      where codes_promo.code = v_code and (max_utilisations is null or utilisations < max_utilisations);
+      if not found then raise exception 'Ce code a atteint son nombre maximum d''utilisations.'; end if;
+    end if;
+  end if;
+
+  if prix > 0 and not attente then
+    if coalesce(p_moyen_paiement, '') not in ('MonCash', 'NatCash') then raise exception 'Choisissez MonCash ou NatCash.'; end if;
+    if coalesce(p_recu_path, '') = '' then raise exception 'La photo du reçu est obligatoire.'; end if;
+  end if;
+
+  loop
+    ref := 'BJA-' || (select string_agg(substr(chars, 1 + floor(random() * 32)::int, 1), '') from generate_series(1, 6));
+    exit when not exists (select 1 from public.reservations where reference = ref);
+  end loop;
+
+  insert into public.reservations (reference, event_id, event_title, prenom, nom, email, telephone,
+    moyen_paiement, montant, recu_path, ticket_token, liste_attente, code_promo)
+  values (ref, ev.id, ev.titre, trim(p_prenom), trim(p_nom), trim(p_email), trim(p_telephone),
+    case when prix > 0 and not attente then p_moyen_paiement end, prix,
+    case when prix > 0 and not attente then p_recu_path end, tok, attente, v_code);
+
+  return json_build_object('reference', ref, 'ticket_token', tok, 'liste_attente', attente, 'montant', prix);
+end $$;
+
+-- Billet : lisible uniquement avec son jeton secret (celui du QR code)
+create or replace function public.billet(p_token uuid)
+returns json language sql stable security definer set search_path = '' as $$
+  select json_build_object(
+    'reference', r.reference, 'prenom', r.prenom, 'nom', r.nom, 'statut', r.statut,
+    'liste_attente', r.liste_attente, 'montant', r.montant, 'scanned_at', r.scanned_at,
+    'event_id', r.event_id, 'evenement', coalesce(e.titre, r.event_title),
+    'debut', e.debut, 'horaires', e.horaires, 'lieu', e.lieu)
+  from public.reservations r left join public.evenements e on e.id = r.event_id
+  where r.ticket_token = p_token;
+$$;
+
+-- Scan à l'entrée (admin) : par QR code (jeton) ou par référence BJA-XXXXXX
+create or replace function public.valider_entree(p_code text)
+returns json language plpgsql security definer set search_path = '' as $$
+declare
+  r public.reservations;
+  v text := trim(coalesce(p_code, ''));
+begin
+  if not public.is_admin() then raise exception 'Réservé aux admins.'; end if;
+  v := coalesce(substring(v from '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'), upper(v));
+  if v ~ '^[0-9a-fA-F-]{36}$' then
+    select * into r from public.reservations where ticket_token = v::uuid for update;
+  else
+    select * into r from public.reservations where reference = v for update;
+  end if;
+  if not found then return json_build_object('resultat', 'introuvable'); end if;
+  if r.statut <> 'confirmee' or r.liste_attente then
+    return json_build_object('resultat', 'non_confirme', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'statut', r.statut, 'liste_attente', r.liste_attente);
+  end if;
+  if r.scanned_at is not null then
+    return json_build_object('resultat', 'deja', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'scanned_at', r.scanned_at);
+  end if;
+  update public.reservations set scanned_at = now() where id = r.id;
+  return json_build_object('resultat', 'ok', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'scanned_at', now());
+end $$;
+
+-- Avis : seulement par une personne dont la réservation est confirmée, après l'événement, une fois.
+create or replace function public.laisser_avis(p_code text, p_note integer, p_commentaire text)
+returns json language plpgsql security definer set search_path = '' as $$
+declare
+  r  public.reservations;
+  ev public.evenements;
+  v  text := trim(coalesce(p_code, ''));
+begin
+  if v ~ '^[0-9a-fA-F-]{36}$' then
+    select * into r from public.reservations where ticket_token = v::uuid;
+  else
+    select * into r from public.reservations where reference = upper(v);
+  end if;
+  if not found or r.statut <> 'confirmee' or r.liste_attente then
+    raise exception 'Référence introuvable ou réservation non confirmée.';
+  end if;
+  select * into ev from public.evenements where id = r.event_id;
+  if found and ev.debut > public.maintenant_haiti() then raise exception 'Vous pourrez laisser un avis après l''événement.'; end if;
+  if exists (select 1 from public.avis where reservation_id = r.id) then raise exception 'Vous avez déjà laissé un avis pour cet événement.'; end if;
+  insert into public.avis (event_id, reservation_id, auteur, note, commentaire)
+  values (r.event_id, r.id, r.prenom || ' ' || left(r.nom, 1) || '.', p_note, left(trim(coalesce(p_commentaire, '')), 800));
+  return json_build_object('ok', true, 'event_id', r.event_id);
+end $$;
+
+revoke execute on function public.places_restantes(), public.verifier_code(text, text),
+  public.reserver(text, text, text, text, text, text, text, text), public.billet(uuid),
+  public.valider_entree(text), public.laisser_avis(text, integer, text) from public;
+grant execute on function public.places_restantes(), public.verifier_code(text, text),
+  public.reserver(text, text, text, text, text, text, text, text), public.billet(uuid),
+  public.laisser_avis(text, integer, text) to anon, authenticated;
+grant execute on function public.valider_entree(text) to authenticated;
+
 -- ============ Espace admin ============
 -- Seuls les comptes listés ici (créés dans Authentication → Users) accèdent à admin.html.
 create table if not exists public.admins (
@@ -204,7 +422,7 @@ drop policy if exists "recus: lecture admin" on storage.objects;
 do $$
 declare t text;
 begin
-  foreach t in array array['reservations', 'photos', 'messages', 'evenements', 'membres', 'reglages'] loop
+  foreach t in array array['reservations', 'photos', 'messages', 'evenements', 'membres', 'reglages', 'codes_promo', 'abonnes', 'avis'] loop
     execute format('drop policy if exists "admin: acces complet" on public.%I', t);
     execute format('create policy "admin: acces complet" on public.%I for all to authenticated
                     using ((select public.is_admin())) with check ((select public.is_admin()))', t);

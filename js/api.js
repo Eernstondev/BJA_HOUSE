@@ -16,6 +16,18 @@ window.BJAApi = (() => {
     if (!res.ok) throw new Error(`Enregistrement refusé (${res.status})`);
   }
 
+  // Fonctions SQL (sécurisées côté serveur). Renvoie le message d'erreur de la base s'il y en a un.
+  async function rpc(name, args = {}) {
+    const res = await fetch(`${base()}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify(args),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Erreur ${res.status}`);
+    return data;
+  }
+
   async function select(table, query) {
     const res = await fetch(`${base()}/rest/v1/${table}?${query}`, { headers: headers() });
     if (!res.ok) throw new Error(`Lecture impossible (${res.status})`);
@@ -83,6 +95,7 @@ window.BJAApi = (() => {
     id: r.id, date: r.debut.slice(0, 16), title: r.titre, cat: r.categorie, hours: r.horaires,
     place: r.lieu, price: Number(r.prix), desc: r.description,
     image: r.image_path ? publicUrl("site", r.image_path) : null,
+    places: r.places ?? null, remaining: null,
   });
 
   const toMember = (r) => ({
@@ -101,10 +114,13 @@ window.BJAApi = (() => {
       applySettings(settings[0]);
       cfg.events = events.map(toEvent);
       cfg.members = members.map(toMember);
+      // Places restantes (événements à places limitées). Ne bloque pas le site si la fonction manque.
+      const left = await Promise.race([rpc("places_restantes"), timeout]).catch(() => []);
+      left.forEach((l) => { const ev = findEvent(l.event_id); if (ev) ev.remaining = l.restantes; });
     } catch {
       /* base injoignable ou pas encore installée : config.js reste utilisé */
     }
   })();
 
-  return { isReady, ready, insert, select, upload, publicUrl, uuid, reference, extension, whatsappLink, price, eventDate, isPast, findEvent, esc };
+  return { isReady, ready, rpc, insert, select, upload, publicUrl, uuid, reference, extension, whatsappLink, price, eventDate, isPast, findEvent, esc };
 })();

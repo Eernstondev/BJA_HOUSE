@@ -17,16 +17,22 @@ window.BJAApi.ready.then(() => {
     const day = String(d.getDate()).padStart(2, "0");
     const month = d.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "");
     const paid = ev.price > 0;
+    const full = ev.remaining === 0;
+    const page = `evenement.html#${encodeURIComponent(ev.id)}`;
+    const rating = ratings[ev.id];
     const action = isPast
-      ? `<span class="tag">Terminé</span>`
-      : `<a class="btn btn--primary" href="reservation.html#${encodeURIComponent(ev.id)}">S'inscrire <span class="arrow" aria-hidden="true">→</span></a>`;
+      ? `<span class="tag">Terminé</span>${rating ? `<span class="event-rating">★ ${rating.avg.toFixed(1).replace(".", ",")} · ${rating.n} avis</span>` : ""}
+         <a class="btn btn--outline btn--sm" href="${page}">${rating ? "Voir les avis" : "Laisser un avis"}</a>`
+      : `${ev.remaining != null ? `<span class="seats${full ? " seats--full" : ev.remaining <= 10 ? " seats--low" : ""}">${full ? "Complet" : `${ev.remaining} place${ev.remaining > 1 ? "s" : ""} restante${ev.remaining > 1 ? "s" : ""}`}</span>` : ""}
+         <a class="btn btn--primary" href="reservation.html#${encodeURIComponent(ev.id)}">${full ? "Liste d'attente" : "S'inscrire"} <span class="arrow" aria-hidden="true">→</span></a>
+         <a class="event-more" href="${page}">Détails</a>`;
     return `
       <article class="event${isPast ? " is-past" : ""}" data-cat="${esc(ev.cat)}">
         <div class="ticket-date"><span class="ticket-day">${day}</span><span class="ticket-month">${esc(month)}</span></div>
         <div class="event-body">
           ${ev.image ? `<img class="event-cover" src="${esc(ev.image)}" alt="" loading="lazy">` : ""}
           <span class="tag">${esc(categories[ev.cat] || ev.cat)}</span>
-          <h3>${esc(ev.title)}</h3>
+          <h3><a class="event-link" href="evenement.html#${encodeURIComponent(ev.id)}">${esc(ev.title)}</a></h3>
           <p>${esc(ev.desc)}</p>
           <dl class="event-facts">
             <div><dt>Date</dt><dd>${esc(api.eventDate(ev))}, ${esc(ev.hours)}</dd></div>
@@ -39,5 +45,20 @@ window.BJAApi.ready.then(() => {
       </article>`;
   };
 
-  list.innerHTML = [...upcoming.map((e) => card(e, false)), ...past.map((e) => card(e, true))].join("");
+  // Notes moyennes des événements passés (avis des participants)
+  const ratings = {};
+  const render = () => {
+    list.innerHTML = [...upcoming.map((e) => card(e, false)), ...past.map((e) => card(e, true))].join("");
+  };
+  render();
+  if (api.isReady() && past.length) {
+    api.select("avis", "select=event_id,note").then((rows) => {
+      rows.forEach((r) => {
+        const x = (ratings[r.event_id] ||= { sum: 0, n: 0 });
+        x.sum += r.note; x.n++;
+      });
+      Object.values(ratings).forEach((x) => (x.avg = x.sum / x.n));
+      render();
+    }).catch(() => {});
+  }
 });

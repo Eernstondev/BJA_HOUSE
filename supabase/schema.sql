@@ -472,3 +472,6 @@ create policy "admin: fichiers" on storage.objects
 -- 1. Authentication → Users → Add user → Create new user (e-mail + mot de passe, « Auto Confirm User » coché).
 -- 2. Puis ici, avec le même e-mail :
 --   insert into public.admins (user_id) select id from auth.users where email = 'admin@exemple.com';
+
+-- Recharge les fonctions côté API (évite « Could not find the function … in the schema cache »).
+notify pgrst, 'reload schema';

@@ -4,8 +4,9 @@ Site vitrine de BJA HOUSE, en HTML, CSS et JavaScript sans framework. Réalisé 
 
 ## Pages
 `index.html` (accueil), `galerie.html`, `activites.html`, `a-propos.html`, `contact.html`,
-`reservation.html` (réservation d'une activité), `evenement.html` (détails, places restantes et avis),
-`billet.html` (billet avec QR code) et `partager.html` (envoi de photos pour la galerie).
+`reservation.html` (réservation de 1 à 10 places, un seul billet pour le groupe), `evenement.html` (détails, places restantes, avis,
+boutons Partager et Ajouter au calendrier), `billet.html` (billet avec QR code), `partager.html` (envoi de photos pour la galerie)
+et `confidentialite.html` (données personnelles).
 
 ## Mise en route
 1. Créer un projet sur [supabase.com](https://supabase.com), puis exécuter `supabase/schema.sql` dans **SQL Editor**.

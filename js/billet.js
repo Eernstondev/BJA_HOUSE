@@ -48,6 +48,7 @@
       <p class="eticket-state">${state[2]}</p>
       <dl class="eticket-facts">
         <div><dt>Nom</dt><dd>${esc(b.prenom)} ${esc(b.nom)}</dd></div>
+        ${b.places > 1 ? `<div><dt>Places</dt><dd>${b.places} personnes</dd></div>` : ""}
         <div><dt>Référence</dt><dd class="ref">${esc(b.reference)}</dd></div>
         ${b.lieu ? `<div><dt>Lieu</dt><dd>${esc(b.lieu)}</dd></div>` : ""}
         <div><dt>Montant</dt><dd>${esc(api.price(Number(b.montant)))}</dd></div>

@@ -76,6 +76,15 @@
               <span class="field-error" id="telephone-error"></span>
             </div>
           </div>
+          <div class="field qty-field">
+            <label for="places">Nombre de places</label>
+            <div class="qty">
+              <button class="qty-btn" type="button" data-qty="-1" aria-label="Une place de moins">−</button>
+              <input id="places" name="places" type="number" inputmode="numeric" min="1" max="10" step="1" value="1">
+              <button class="qty-btn" type="button" data-qty="1" aria-label="Une place de plus">+</button>
+            </div>
+            <span class="form-note" data-qty-note>Un seul billet pour tout le groupe, jusqu'à 10 places.</span>
+          </div>
         </fieldset>
 
         <fieldset class="form-block" data-payment-block>
@@ -103,7 +112,7 @@
 
         <p class="form-status" role="status" hidden></p>
         <button class="btn btn--primary btn--block" type="submit">Réserver ma place <span class="arrow" aria-hidden="true">→</span></button>
-        <p class="form-note">En réservant, vous serez redirigé vers WhatsApp avec un message pré-rempli pour BJA HOUSE.</p>
+        <p class="form-note">En réservant, vous serez redirigé vers WhatsApp avec un message pré-rempli pour BJA HOUSE. Vos informations servent uniquement à gérer votre réservation (<a href="confidentialite.html">confidentialité</a>).</p>
       </form>
 
       <div class="done-panel" data-done hidden tabindex="-1">
@@ -147,7 +156,7 @@
       </div>
     </div>
     <div class="footer-bottom">
-      <span>© <span data-year>2026</span> BJA HOUSE. Tous droits réservés. <a class="admin-link" href="admin.html" rel="nofollow">Admin</a></span>
+      <span>© <span data-year>2026</span> BJA HOUSE. Tous droits réservés. <a class="footer-legal" href="confidentialite.html">Confidentialité</a> <a class="admin-link" href="admin.html" rel="nofollow">Admin</a></span>
       <span>Site réalisé par <b class="credit">URBVEC ATELIER</b></span>
     </div>
   </div>

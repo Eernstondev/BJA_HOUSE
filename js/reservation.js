@@ -26,6 +26,8 @@ window.BJAApi.ready.then(() => {
   const full = ev.remaining === 0;           // complet : inscription sur liste d'attente
   let price = ev.price;                      // prix après code promo
   let promoCode = "";
+  let qty = 1;                               // nombre de places réservées
+  const maxQty = full || ev.remaining == null ? 10 : Math.min(10, ev.remaining);
   const needPayment = () => price > 0 && !full;
   document.title = `Réserver : ${ev.title} · BJA HOUSE`;
 
@@ -40,7 +42,8 @@ window.BJAApi.ready.then(() => {
       <div><dt>Horaires</dt><dd>${esc(ev.hours)}</dd></div>
       <div><dt>Lieu</dt><dd>${esc(ev.place)}</dd></div>
       ${seats}
-      <div><dt>Prix</dt><dd class="price price--big" data-price>${esc(api.price(ev.price))}</dd></div>
+      <div><dt>Prix par place</dt><dd class="price" data-price>${esc(api.price(ev.price))}</dd></div>
+      <div data-total-row><dt>Total</dt><dd class="price price--big" data-total></dd></div>
     </dl>
     <div class="pay-info" data-pay-info></div>`;
 
@@ -54,6 +57,8 @@ window.BJAApi.ready.then(() => {
     $("[data-price]").innerHTML = price !== ev.price
       ? `<s>${esc(api.price(ev.price))}</s> ${esc(api.price(price))}`
       : esc(api.price(price));
+    $("[data-total]").textContent = `${api.price(price * qty)}${qty > 1 ? ` · ${qty} places` : ""}`;
+    $("[data-total-row]").hidden = ev.price <= 0 && qty === 1;
     // Les champs de paiement ne servent que si un montant reste à payer
     [$("[data-payment-options]"), $("#paiement-error"), $("#recu")?.closest(".field")].forEach((el) => { if (el) el.hidden = !needPayment(); });
   }
@@ -73,6 +78,21 @@ window.BJAApi.ready.then(() => {
     $("[data-waitlist]").hidden = false;
     $("button[type=submit]", form).innerHTML = `Rejoindre la liste d'attente <span class="arrow" aria-hidden="true">→</span>`;
   }
+  /* ---------- Nombre de places ---------- */
+  const qtyInput = $("#places");
+  const setQty = (n) => {
+    qty = Math.min(maxQty, Math.max(1, Math.trunc(Number(n)) || 1));
+    qtyInput.value = qty;
+    refreshPayment();
+  };
+  qtyInput.max = maxQty;
+  if (maxQty < 10) $("[data-qty-note]").textContent = `Un seul billet pour tout le groupe. Il reste ${maxQty} place${maxQty > 1 ? "s" : ""}.`;
+  qtyInput.addEventListener("change", () => setQty(qtyInput.value));
+  form.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-qty]");
+    if (b) setQty(qty + Number(b.dataset.qty));
+  });
+
   refreshPayment();
   form.hidden = false;
 
@@ -170,7 +190,10 @@ window.BJAApi.ready.then(() => {
   form.addEventListener("input", () => { if (status.classList.contains("is-error")) status.hidden = true; });
 
   /* ---------- Message WhatsApp ---------- */
-  const buildMessage = (data, result) => [
+  const buildMessage = (data, result) => {
+    const n = result.places || qty;
+    const seatsText = n > 1 ? `mes ${n} places` : "ma place";
+    return [
     ...(!result.liste_attente && result.montant > 0
       ? [
           "*IMPORTANT : joignez la photo de votre reçu de paiement à ce message avant de l'envoyer. Sans le reçu, la réservation ne peut pas être vérifiée.*",
@@ -181,12 +204,13 @@ window.BJAApi.ready.then(() => {
     "Bonjour BJA HOUSE,",
     result.liste_attente
       ? `je viens de m'inscrire sur la liste d'attente pour « ${ev.title} ».`
-      : `je viens de réserver ma place pour « ${ev.title} ».`,
+      : `je viens de réserver ${seatsText} pour « ${ev.title} ».`,
     "",
     `Référence : ${result.reference}`,
     `Événement : ${ev.title}, ${api.eventDate(ev)} (${ev.hours})`,
     `Lieu : ${ev.place}`,
     `Nom : ${data.prenom} ${data.nom}`,
+    `Places : ${n}`,
     `E-mail : ${data.email}`,
     `Téléphone : ${data.telephone}`,
     ...(result.liste_attente
@@ -196,8 +220,9 @@ window.BJAApi.ready.then(() => {
             `Montant : ${api.price(result.montant)}${promoCode ? ` (code ${promoCode})` : ""}`,
             `Moyen de paiement : ${data.moyen}`,
           ]
-        : ["", "Réservation gratuite : merci de me confirmer ma place et de m'envoyer mon billet."]),
+        : ["", `Réservation gratuite : merci de me confirmer ${seatsText} et de m'envoyer mon billet.`]),
   ].join("\n");
+  };
 
   /* ---------- Envoi ---------- */
   const submit = $("button[type=submit]", form);
@@ -235,16 +260,16 @@ window.BJAApi.ready.then(() => {
         }
         result = await api.rpc("reserver", {
           p_event_id: ev.id, p_prenom: data.prenom, p_nom: data.nom, p_email: data.email, p_telephone: data.telephone,
-          p_moyen_paiement: data.moyen, p_recu_path: recuPath, p_code: promoCode || null,
+          p_moyen_paiement: data.moyen, p_recu_path: recuPath, p_code: promoCode || null, p_places: qty,
         });
       } else {
-        result = { reference: api.reference(), ticket_token: null, liste_attente: full, montant: price };
+        result = { reference: api.reference(), ticket_token: null, liste_attente: full, montant: price * qty, places: qty };
         note = "Mode démonstration : la base de données n'est pas encore reliée, rien n'a été enregistré.";
       }
     } catch (err) {
       status.classList.add("is-error");
       // Messages clairs renvoyés par le serveur (événement terminé, code invalide, reçu manquant…)
-      status.textContent = /terminé|introuvable|code|reçu|MonCash|utilisations/i.test(err.message)
+      status.textContent = /terminé|introuvable|code|reçu|MonCash|utilisations|place/i.test(err.message)
         ? err.message
         : "L'enregistrement a échoué. Vérifiez votre connexion et réessayez.";
       submit.disabled = false;

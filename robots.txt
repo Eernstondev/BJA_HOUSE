@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /BJA_HOUSE/admin.html
+Disallow: /BJA_HOUSE/billet.html
+
+Sitemap: https://eernstondev.github.io/BJA_HOUSE/sitemap.xml

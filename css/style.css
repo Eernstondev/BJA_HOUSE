@@ -999,3 +999,24 @@ p { margin: 0; }
   .chart-bar { grid-column: 1 / -1; grid-row: 2; }
 }
 @media (prefers-reduced-motion: reduce) { .chart-bar .seg { animation: none; } }
+
+/* Admin : entrées scannées et remerciements */
+.admin-entries { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.entries-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.entries-group { background: var(--white); border: 1px solid var(--grey-150); border-radius: var(--radius); padding: clamp(14px, 3vw, 20px); display: grid; gap: 10px; min-width: 0; }
+.entries-group h3 { font-size: 1.05rem; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.entries-group h3 span { font: 600 .8rem var(--font-body); color: var(--grey-500); }
+.entries-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.entries-list li + li { border-top: 1px solid var(--grey-150); }
+.entry { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 4px 12px; align-items: center; padding: 10px 2px; cursor: pointer; }
+.entry input { accent-color: var(--royal); width: 18px; height: 18px; }
+.entry-name { display: grid; min-width: 0; }
+.entry-name b, .entry-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry-name small { color: var(--grey-500); font-size: .8rem; }
+.entry time { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--royal-deep); font-size: var(--step--1); }
+@media (max-width: 480px) { .entry { grid-template-columns: auto minmax(0, 1fr) auto; } .entry .admin-badge { grid-column: 2; justify-self: start; } }
+.entries-thanks { background: var(--white); border: 1px solid var(--grey-150); border-radius: var(--radius); padding: clamp(14px, 3vw, 20px); display: grid; gap: 8px; min-width: 0; }
+.entries-thanks label { font-weight: 600; }
+.entries-thanks textarea { font: inherit; width: 100%; min-height: 96px; border: 1px solid var(--grey-300); border-radius: var(--radius); padding: 10px 12px; resize: vertical; }
+.entries-queue { background: var(--royal-soft); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.entries-queue p { flex: 1 1 100%; margin: 0; }

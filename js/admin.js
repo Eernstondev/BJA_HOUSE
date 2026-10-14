@@ -176,6 +176,7 @@
   const TABS = {
     reservations: { label: "Réservations", filters: [["en_attente", "À vérifier"], ["confirmee", "Confirmées"], ["attente", "Liste d'attente"], ["refusee", "Refusées"], ["", "Toutes"]], pending: (r) => r.statut === "en_attente" && !r.liste_attente },
     scanner: { label: "Scanner", filters: [] },
+    entrees: { label: "Entrées", filters: [] },
     evenements: { label: "Événements", filters: [["avenir", "À venir"], ["passes", "Passés"], ["masques", "Masqués"], ["", "Tous"]] },
     photos: { label: "Photos", filters: [["en_attente", "En attente"], ["approuvee", "Publiées"], ["refusee", "Refusées"], ["", "Toutes"]], pending: (r) => r.statut === "en_attente" },
     membres: { label: "Membres", filters: [] },
@@ -244,6 +245,8 @@
   const stars = (n) => `<span class="stars" aria-label="${n} sur 5">${"★".repeat(n)}<span class="stars-off">${"★".repeat(5 - n)}</span></span>`;
   const eventTitle = (id) => data.evenements.find((e) => e.id === id)?.titre
     || data.reservations.find((r) => r.event_id === id)?.event_title || id;
+  const confirmMsg = (r) => `Bonjour ${r.prenom}, votre paiement est vérifié : votre réservation ${r.reference} pour « ${r.event_title} » est confirmée. Voici votre billet avec QR code, à présenter à l'entrée : ${ticketUrl(r)} À bientôt ! BJA HOUSE`;
+  const refuseMsg = (r) => `Bonjour ${r.prenom}, nous n'avons pas pu valider le paiement de votre réservation ${r.reference} pour « ${r.event_title} ». Répondez à ce message pour régulariser. BJA HOUSE`;
   const ticketUrl = (r) => new URL(`billet.html?t=${r.ticket_token}`, location.href).href;
   const waBtn = (href, label) =>
     href ? `<a class="btn btn--outline btn--sm" href="${esc(href)}" target="_blank" rel="noopener">${label}</a>` : "";
@@ -272,8 +275,9 @@
     const chips = TABS[tab].filters.map(([v, l]) => `
       <label class="chip"><input type="radio" name="filtre" value="${v}"${v === filter ? " checked" : ""}><span>${l}</span></label>`).join("");
     let extra = "";
-    if (tab === "reservations") {
-      const ids = new Set(data.reservations.map((r) => r.event_id));
+    if (tab === "reservations" || tab === "entrees") {
+      const rows = tab === "entrees" ? data.reservations.filter((r) => r.scanned_at) : data.reservations;
+      const ids = new Set(rows.map((r) => r.event_id));
       const options = [...ids].map((id) => {
         const ev = data.evenements.find((e) => e.id === id);
         const title = ev?.titre || data.reservations.find((r) => r.event_id === id).event_title;
@@ -323,9 +327,7 @@
           ${r.liste_attente ? btn("waitlist-accept", "Donner une place", "primary") : r.statut !== "confirmee" ? btn("set", "Confirmer", "primary", ' data-value="confirmee"') : ""}
           ${r.statut !== "refusee" ? btn("set", "Refuser", "danger", ' data-value="refusee"') : ""}
           ${r.liste_attente ? waBtn(clientWa(r.telephone, `Bonjour ${r.prenom}, une place s'est libérée pour « ${r.event_title} ». Répondez à ce message pour la réserver. BJA HOUSE`), "Prévenir sur WhatsApp") : ""}
-          ${r.statut === "en_attente" ? "" : waBtn(clientWa(r.telephone, r.statut === "refusee"
-            ? `Bonjour ${r.prenom}, nous n'avons pas pu valider le paiement de votre réservation ${r.reference} pour « ${r.event_title} ». Répondez à ce message pour régulariser. BJA HOUSE`
-            : `Bonjour ${r.prenom}, votre réservation ${r.reference} pour « ${r.event_title} » est confirmée. Voici votre billet avec QR code, à présenter à l'entrée : ${ticketUrl(r)} À bientôt ! BJA HOUSE`), "Prévenir sur WhatsApp")}
+          ${r.statut === "en_attente" ? "" : waBtn(clientWa(r.telephone, r.statut === "refusee" ? refuseMsg(r) : confirmMsg(r)), r.statut === "refusee" ? "Prévenir sur WhatsApp" : "Renvoyer le billet sur WhatsApp")}
           ${r.statut === "confirmee" && !r.liste_attente ? btn("copy-ticket", "Copier le lien du billet") : ""}
           ${btn("delete", "Supprimer", "ghost-danger")}
         </div>
@@ -509,6 +511,11 @@
       list.innerHTML = statsView();
       return;
     }
+    if (tab === "entrees") {
+      list.className = "admin-list admin-list--wide";
+      list.innerHTML = entreesView();
+      return;
+    }
     if (tab === "scanner") {
       list.className = "admin-list admin-list--scanner";
       if (!$(".admin-scanner", list)) list.innerHTML = scannerView(); // garde la caméra ouverte pendant « Actualiser »
@@ -523,7 +530,7 @@
     if (nextTab !== "scanner") stopScan();
     tab = nextTab;
     filter = nextFilter ?? TABS[tab].filters[0]?.[0] ?? "";
-    if (tab !== "reservations") eventFilter = "";
+    if (tab !== "reservations" && tab !== "entrees") eventFilter = "";
     render();
   }
 
@@ -605,9 +612,20 @@
     if (action === "copy-ticket") return copy(ticketUrl(item), "lien");
     if (action === "copy-code") return copy(item.code, "code");
 
+    // Confirmer ou refuser une réservation ouvre aussitôt WhatsApp vers le client.
+    // La fenêtre est ouverte pendant le clic, sinon le navigateur la bloque.
+    const waTo = action === "set" && tab === "reservations"
+      ? clientWa(item.telephone, b.dataset.value === "confirmee" ? confirmMsg(item) : refuseMsg(item)) : null;
+    const win = waTo ? window.open("", "_blank") : null;
+
     b.disabled = true;
     try {
-      if (action === "set") await updateItem(item, { statut: b.dataset.value });
+      if (action === "set") {
+        await updateItem(item, { statut: b.dataset.value });
+        if (win) win.location.href = waTo;
+        else if (waTo) say(`Statut enregistré. WhatsApp n'a pas pu s'ouvrir : utilisez le bouton « ${b.dataset.value === "confirmee" ? "Renvoyer le billet" : "Prévenir"} sur WhatsApp ».`);
+        else if (tab === "reservations") say("Statut enregistré. Numéro de téléphone invalide : prévenez la personne autrement.", true);
+      }
       else if (action === "toggle-traite") await updateItem(item, { traite: !item.traite });
       else if (action === "toggle-publie") await updateItem(item, { publie: !item.publie });
       else if (action === "toggle-actif") await updateItem(item, { actif: !item.actif });
@@ -621,9 +639,10 @@
         if (BUCKET_FILE[tab]) await files.remove(...BUCKET_FILE[tab](item));
         data[tab] = data[tab].filter((r) => r !== item);
       }
-      say("");
+      if (!waTo || win) say("");
       render();
     } catch (err) {
+      win?.close();
       say(err.message, true);
       b.disabled = false;
     }
@@ -1110,6 +1129,107 @@
     validate(code).then(() => e.target.reset());
   });
   document.addEventListener("visibilitychange", () => { if (document.hidden) stopScan(); });
+
+  /* =====================================================================
+     Entrées : personnes scannées, heure d'arrivée, remerciements
+     ===================================================================== */
+  const THANKS_KEY = "bja-admin-remercies";
+  const thanked = new Set((() => { try { return JSON.parse(localStorage.getItem(THANKS_KEY)) || []; } catch { return []; } })());
+  const saveThanked = () => { try { localStorage.setItem(THANKS_KEY, JSON.stringify([...thanked])); } catch { /* stockage indisponible */ } };
+  let thanksText = "Bonjour {prenom}, merci d'être venu(e) à « {evenement} » ! On espère que vous avez passé un super moment. À très bientôt pour le prochain événement. BJA HOUSE";
+  let queue = [];
+
+  const entrees = () => data.reservations
+    .filter((r) => r.scanned_at && (!eventFilter || r.event_id === eventFilter))
+    .sort((a, b) => new Date(a.scanned_at) - new Date(b.scanned_at));
+  const fillThanks = (r) => thanksText.replaceAll("{prenom}", r.prenom).replaceAll("{evenement}", r.event_title);
+
+  function entreesView() {
+    const rows = entrees();
+    if (!rows.length) return `<p class="admin-empty">Aucune entrée scannée${eventFilter ? " pour cet événement" : ""}. Les personnes apparaissent ici dès que leur billet est scanné.</p>`;
+    const byEvent = new Map();
+    rows.forEach((r) => (byEvent.get(r.event_id) || byEvent.set(r.event_id, []).get(r.event_id)).push(r));
+    const groups = [...byEvent.values()].map((list) => `
+      <section class="entries-group">
+        <h3>${esc(list[0].event_title)} <span>${list.length} entrée${list.length > 1 ? "s" : ""}</span></h3>
+        <ul class="entries-list">${list.map((r) => `
+          <li>
+            <label class="entry">
+              <input type="checkbox" data-entry value="${esc(r.id)}" checked>
+              <span class="entry-name"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${esc(r.telephone)} · ${esc(r.reference)}</small></span>
+              <time>${new Date(r.scanned_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>
+              ${thanked.has(r.id) ? tag("Remercié", "ok") : ""}
+            </label>
+          </li>`).join("")}
+        </ul>
+      </section>`).join("");
+    return `
+      <section class="admin-entries">
+        <div class="entries-head">
+          <p><b>${rows.length}</b> personne${rows.length > 1 ? "s" : ""} entrée${rows.length > 1 ? "s" : ""}, de la première à la dernière arrivée.</p>
+          <label class="consent"><input type="checkbox" data-entry-all checked> Tout sélectionner</label>
+        </div>
+        ${groups}
+        <form class="entries-thanks" data-thanks-form novalidate>
+          <label for="thanks-text">Message de remerciement</label>
+          <textarea id="thanks-text" name="text" maxlength="600">${esc(thanksText)}</textarea>
+          <span class="admin-hint">{prenom} et {evenement} sont remplacés pour chaque personne.</span>
+          <div class="admin-actions">
+            <button class="btn btn--primary btn--sm" type="submit" data-thanks-count>Envoyer à la sélection (${rows.length})</button>
+            ${btn("thanks-copy", "Copier les numéros")}
+          </div>
+          <div class="entries-queue" data-thanks-queue hidden></div>
+        </form>
+      </section>`;
+  }
+
+  const selectedEntries = () => {
+    const ids = new Set($$("[data-entry]:checked", list).map((c) => c.value));
+    return entrees().filter((r) => ids.has(r.id));
+  };
+  function refreshThanksCount() {
+    const n = selectedEntries().length;
+    const b = $("[data-thanks-count]", list);
+    if (b) { b.textContent = `Envoyer à la sélection (${n})`; b.disabled = !n; }
+  }
+  // WhatsApp n'autorise pas l'envoi groupé depuis un site : un clic ouvre la conversation suivante.
+  function showQueue() {
+    const box = $("[data-thanks-queue]", list);
+    if (!box) return;
+    box.hidden = false;
+    const next = queue[0];
+    box.innerHTML = next
+      ? `<p>Prochain message : <b>${esc(next.prenom)} ${esc(next.nom)}</b> (${queue.length} restant${queue.length > 1 ? "s" : ""})</p>
+         ${clientWa(next.telephone, fillThanks(next)) ? `<a class="btn btn--primary btn--sm" data-thanks-next href="${esc(clientWa(next.telephone, fillThanks(next)))}" target="_blank" rel="noopener">Ouvrir WhatsApp pour ${esc(next.prenom)}</a>` : `<span class="admin-hint">Numéro invalide.</span>`}
+         ${btn("thanks-skip", "Passer")}`
+      : `<p><b>Terminé.</b> Tous les messages ont été ouverts.</p>`;
+  }
+  const advanceQueue = (sent) => {
+    const r = queue.shift();
+    if (r && sent) { thanked.add(r.id); saveThanked(); }
+    showQueue();
+    const item = r && $(`[data-entry][value="${CSS.escape(r.id)}"]`, list)?.closest(".entry");
+    if (item && sent && !$(".admin-badge", item)) item.insertAdjacentHTML("beforeend", tag("Remercié", "ok"));
+  };
+
+  list.addEventListener("change", (e) => {
+    if (e.target.matches("[data-entry-all]")) $$("[data-entry]", list).forEach((c) => (c.checked = e.target.checked));
+    if (e.target.matches("[data-entry], [data-entry-all]")) refreshThanksCount();
+  });
+  list.addEventListener("input", (e) => { if (e.target.id === "thanks-text") thanksText = e.target.value; });
+  list.addEventListener("submit", (e) => {
+    if (!e.target.matches("[data-thanks-form]")) return;
+    e.preventDefault();
+    queue = selectedEntries();
+    if (!thanksText.trim()) return say("Écrivez le message de remerciement.", true);
+    showQueue();
+  });
+  list.addEventListener("click", (e) => {
+    if (e.target.closest("[data-thanks-next]")) setTimeout(() => advanceQueue(true), 0);
+    const action = e.target.closest("[data-action]")?.dataset.action;
+    if (action === "thanks-skip") advanceQueue(false);
+    if (action === "thanks-copy") copy(selectedEntries().map((r) => r.telephone).join("\n"), "numéro");
+  });
 
   /* =====================================================================
      Statistiques

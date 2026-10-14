@@ -33,8 +33,9 @@ Page non listée dans le menu, réservée aux comptes admin.
 4. Conseillé : Authentication → Sign In / Providers → désactiver « Allow new users to sign up ».
 
 Depuis le tableau de bord, l'admin gère tout le site :
-- **Réservations** : voir le reçu, confirmer, refuser, envoyer le billet sur WhatsApp, gérer la liste d'attente, filtrer par événement, exporter pour Excel, supprimer.
+- **Réservations** : voir le reçu, confirmer ou refuser (WhatsApp s'ouvre aussitôt vers la personne avec son billet ou le refus), gérer la liste d'attente, filtrer par événement, exporter pour Excel, supprimer.
 - **Scanner** : à l'entrée, ouvrir l'espace admin sur le téléphone et scanner le QR code du billet (ou taper sa référence). Chaque billet n'est accepté qu'une fois. La caméra demande le site en ligne (https).
+- **Entrées** : les personnes scannées avec leur heure d'arrivée, par événement ; sélectionner et leur envoyer un remerciement sur WhatsApp, ou copier leurs numéros.
 - **Événements** : créer, modifier (date, prix, lieu, nombre de places, image), masquer ou supprimer ; voir les inscrits. Quand un événement est complet, les inscriptions passent en liste d'attente.
 - **Photos** : publier ou refuser les photos envoyées, ajouter directement des photos à la galerie, supprimer.
 - **Membres** : ajouter, modifier (photo, rôle, présentation, ordre), masquer ou supprimer.

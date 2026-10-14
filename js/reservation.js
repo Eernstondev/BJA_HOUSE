@@ -171,6 +171,9 @@ window.BJAApi.ready.then(() => {
 
   /* ---------- Message WhatsApp ---------- */
   const buildMessage = (data, result) => [
+    ...(!result.liste_attente && result.montant > 0
+      ? ["*IMPORTANT : joignez la photo de votre reçu de paiement à ce message avant de l'envoyer. Sans le reçu, la réservation ne peut pas être vérifiée.*", ""]
+      : []),
     "Bonjour BJA HOUSE,",
     result.liste_attente
       ? `je viens de m'inscrire sur la liste d'attente pour « ${ev.title} ».`
@@ -189,12 +192,10 @@ window.BJAApi.ready.then(() => {
             `Montant : ${api.price(result.montant)}${promoCode ? ` (code ${promoCode})` : ""}`,
             `Moyen de paiement : ${data.moyen}`,
             "",
-            "IMPORTANT : j'envoie la photo de mon reçu de paiement juste après ce message, pour la vérification complète de ma réservation.",
+            "Une fois mon paiement vérifié, l'équipe m'envoie mon billet avec QR code ici sur WhatsApp.",
           ]
-        : ["", "Réservation gratuite : merci de me confirmer ma place."]),
-    ...(result.ticket_token ? ["", `Mon billet : ${ticketUrl(result)}`] : []),
+        : ["", "Réservation gratuite : merci de me confirmer ma place et de m'envoyer mon billet."]),
   ].join("\n");
-  const ticketUrl = (result) => new URL(`billet.html?t=${encodeURIComponent(result.ticket_token)}`, location.href).href;
 
   /* ---------- Envoi ---------- */
   const submit = $("button[type=submit]", form);
@@ -249,7 +250,7 @@ window.BJAApi.ready.then(() => {
     }
     result.montant = Number(result.montant);
 
-    // Réservation enregistrée : étape finale, lien du billet, puis WhatsApp
+    // Réservation enregistrée : WhatsApp s'ouvre directement avec le message pré-rempli
     const link = api.whatsappLink(buildMessage(data, result));
     $("[data-ref]", done).textContent = result.reference;
     if (result.liste_attente) {
@@ -257,18 +258,19 @@ window.BJAApi.ready.then(() => {
       $("[data-done-title]", done).textContent = "Vous êtes sur la liste d'attente";
       $("[data-done-text]", done).textContent = "L'événement est complet. Ne payez rien pour l'instant : l'équipe vous contacte sur WhatsApp si une place se libère.";
     } else if (result.montant <= 0) {
-      $("[data-done-title]", done).textContent = "Votre place est réservée";
-      $("[data-done-text]", done).textContent = "Ouvrez votre billet : le QR code y apparaît dès que l'équipe a confirmé votre place.";
-    }
-    if (result.ticket_token) {
-      $("[data-ticket-link]", done).href = ticketUrl(result);
-      $("[data-ticket-link]", done).hidden = false;
-      $("[data-ticket-note]", done).hidden = false;
+      $("[data-done-title]", done).textContent = "Dernière étape : confirmez sur WhatsApp";
+      $("[data-done-text]", done).textContent = "Envoyez le message WhatsApp : l'équipe confirme votre place et vous envoie votre billet.";
     }
     const waBtn = $("[data-wa-link]", done);
     if (link) waBtn.href = link;
     else { waBtn.hidden = true; note = (note ? note + " " : "") + "Le numéro WhatsApp de BJA HOUSE n'est pas encore configuré."; }
     $("[data-done-note]", done).textContent = note;
+    if (link) {
+      // Si WhatsApp ne s'ouvre pas (ou au retour sur la page), le lien reste disponible
+      status.innerHTML = `Réservation ${api.esc(result.reference)} enregistrée. Ouverture de WhatsApp… <a href="${api.esc(link)}">Ouvrir WhatsApp</a>`;
+      location.href = link;
+      return;
+    }
     form.hidden = true;
     done.hidden = false;
     done.focus();

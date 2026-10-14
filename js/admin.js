@@ -175,6 +175,7 @@
   const isPastEvent = (ev) => api.isPast({ date: ev.debut });
   const TABS = {
     reservations: { label: "Réservations", filters: [["en_attente", "À vérifier"], ["confirmee", "Confirmées"], ["attente", "Liste d'attente"], ["refusee", "Refusées"], ["", "Toutes"]], pending: (r) => r.statut === "en_attente" && !r.liste_attente },
+    rappels: { label: "Rappels", filters: [] },
     scanner: { label: "Scanner", filters: [] },
     entrees: { label: "Entrées", filters: [] },
     evenements: { label: "Événements", filters: [["avenir", "À venir"], ["passes", "Passés"], ["masques", "Masqués"], ["", "Tous"]] },
@@ -278,9 +279,12 @@
     const chips = TABS[tab].filters.map(([v, l]) => `
       <label class="chip"><input type="radio" name="filtre" value="${v}"${v === filter ? " checked" : ""}><span>${l}</span></label>`).join("");
     let extra = "";
-    if (tab === "reservations" || tab === "entrees") {
-      const rows = tab === "entrees" ? data.reservations.filter((r) => r.scanned_at) : data.reservations;
+    if (tab === "reservations" || tab === "entrees" || tab === "rappels") {
+      const rows = tab === "entrees" ? data.reservations.filter((r) => r.scanned_at)
+        : tab === "rappels" ? data.reservations.filter((r) => isConfirmed(r) && isUpcoming(r.event_id))
+        : data.reservations;
       const ids = new Set(rows.map((r) => r.event_id));
+      if (eventFilter && !ids.has(eventFilter)) eventFilter = ""; // l'événement choisi n'a rien dans cet onglet
       const options = [...ids].map((id) => {
         const ev = data.evenements.find((e) => e.id === id);
         const title = ev?.titre || data.reservations.find((r) => r.event_id === id).event_title;
@@ -361,6 +365,7 @@
           ${btn("event-edit", "Modifier", "primary")}
           ${btn("toggle-publie", e.publie ? "Masquer" : "Mettre en ligne")}
           ${resa.length ? btn("event-resa", "Voir les inscrits") : ""}
+          ${ok && !isPastEvent(e) ? btn("event-remind", "Rappel la veille") : ""}
           ${btn("delete", "Supprimer", "ghost-danger")}
         </div>
       </article>`;
@@ -513,9 +518,9 @@
       list.innerHTML = statsView();
       return;
     }
-    if (tab === "entrees") {
+    if (tab === "entrees" || tab === "rappels") {
       list.className = "admin-list admin-list--wide";
-      list.innerHTML = entreesView();
+      list.innerHTML = queueView();
       return;
     }
     if (tab === "scanner") {
@@ -532,7 +537,9 @@
     if (nextTab !== "scanner") stopScan();
     tab = nextTab;
     filter = nextFilter ?? TABS[tab].filters[0]?.[0] ?? "";
-    if (tab !== "reservations" && tab !== "entrees") eventFilter = "";
+    queue = [];
+    if (tab === "rappels" && (eventFilter ? !isUpcoming(eventFilter) : nextFilter === undefined)) eventFilter = nextRemindEvent();
+    else if (tab !== "reservations" && tab !== "entrees" && tab !== "rappels") eventFilter = "";
     render();
   }
 
@@ -610,6 +617,7 @@
     if (action === "event-edit") return eventEditor(item);
     if (action === "member-edit") return memberEditor(item);
     if (action === "event-resa") { eventFilter = item.id; return goTo("reservations", ""); }
+    if (action === "event-remind") { eventFilter = item.id; return goTo("rappels", ""); }
     if (action === "code-edit") return codeEditor(item);
     if (action === "copy-ticket") return copy(ticketUrl(item), "lien");
     if (action === "copy-code") return copy(item.code, "code");
@@ -1148,48 +1156,83 @@
   document.addEventListener("visibilitychange", () => { if (document.hidden) stopScan(); });
 
   /* =====================================================================
-     Entrées : personnes scannées, heure d'arrivée, remerciements
+     Entrées (remerciements) et Rappels (la veille) : messages WhatsApp un par un
      ===================================================================== */
-  const THANKS_KEY = "bja-admin-remercies";
-  const thanked = new Set((() => { try { return JSON.parse(localStorage.getItem(THANKS_KEY)) || []; } catch { return []; } })());
-  const saveThanked = () => { try { localStorage.setItem(THANKS_KEY, JSON.stringify([...thanked])); } catch { /* stockage indisponible */ } };
-  let thanksText = "Bonjour {prenom}, merci d'être venu(e) à « {evenement} » ! On espère que vous avez passé un super moment. À très bientôt pour le prochain événement. BJA HOUSE";
+  const isUpcoming = (id) => { const ev = data.evenements.find((e) => e.id === id); return !!ev && !isPastEvent(ev); };
+  const isConfirmed = (r) => r.statut === "confirmee" && !r.liste_attente;
+  const QUEUES = {
+    entrees: {
+      store: "bja-admin-remercies", done: "Remercié", what: "remerciement",
+      text: "Bonjour {prenom}, merci d'être venu(e) à « {evenement} » ! On espère que vous avez passé un super moment. À très bientôt pour le prochain événement. BJA HOUSE",
+      rows: () => data.reservations
+        .filter((r) => r.scanned_at && (!eventFilter || r.event_id === eventFilter))
+        .sort((a, b) => new Date(a.scanned_at) - new Date(b.scanned_at)),
+    },
+    rappels: {
+      store: "bja-admin-rappels", done: "Rappelé", what: "rappel",
+      text: "Bonjour {prenom}, petit rappel : « {evenement} », c'est demain, {date} ({heure}), {lieu}. Votre billet avec QR code : {billet} Présentez-le à l'entrée. À demain ! BJA HOUSE",
+      rows: () => data.reservations
+        .filter((r) => isConfirmed(r) && isUpcoming(r.event_id) && (!eventFilter || r.event_id === eventFilter))
+        .sort((a, b) => a.prenom.localeCompare(b.prenom, "fr")),
+    },
+  };
+  Object.values(QUEUES).forEach((q) => {
+    q.sent = new Set((() => { try { return JSON.parse(localStorage.getItem(q.store)) || []; } catch { return []; } })());
+  });
+  const saveSent = (q) => { try { localStorage.setItem(q.store, JSON.stringify([...q.sent])); } catch { /* stockage indisponible */ } };
   let queue = [];
+  const mode = () => QUEUES[tab];
+  // Rappels : par défaut, le prochain événement qui a des inscrits confirmés.
+  const nextRemindEvent = () => data.evenements
+    .filter((e) => !isPastEvent(e) && data.reservations.some((r) => r.event_id === e.id && isConfirmed(r)))
+    .sort((a, b) => new Date(a.debut) - new Date(b.debut))[0]?.id || "";
 
-  const entrees = () => data.reservations
-    .filter((r) => r.scanned_at && (!eventFilter || r.event_id === eventFilter))
-    .sort((a, b) => new Date(a.scanned_at) - new Date(b.scanned_at));
-  const fillThanks = (r) => thanksText.replaceAll("{prenom}", r.prenom).replaceAll("{evenement}", r.event_title);
+  function fillMessage(r) {
+    const ev = data.evenements.find((e) => e.id === r.event_id);
+    const vars = {
+      prenom: r.prenom, evenement: r.event_title,
+      date: ev ? new Date(ev.debut).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }) : "",
+      heure: ev?.horaires || "", lieu: ev?.lieu || "", billet: ticketUrl(r),
+    };
+    return mode().text.replace(/\{(prenom|evenement|date|heure|lieu|billet)\}/g, (_, k) => vars[k]);
+  }
 
-  function entreesView() {
-    const rows = entrees();
-    if (!rows.length) return `<p class="admin-empty">Aucune entrée scannée${eventFilter ? " pour cet événement" : ""}. Les personnes apparaissent ici dès que leur billet est scanné.</p>`;
+  function queueView() {
+    const q = mode();
+    const rows = q.rows();
+    const remind = tab === "rappels";
+    if (!rows.length) return `<p class="admin-empty">${remind
+      ? `Aucun inscrit confirmé${eventFilter ? " pour cet événement" : " pour les événements à venir"}.`
+      : `Aucune entrée scannée${eventFilter ? " pour cet événement" : ""}. Les personnes apparaissent ici dès que leur billet est scanné.`}</p>`;
     const byEvent = new Map();
     rows.forEach((r) => (byEvent.get(r.event_id) || byEvent.set(r.event_id, []).get(r.event_id)).push(r));
     const groups = [...byEvent.values()].map((list) => `
       <section class="entries-group">
-        <h3>${esc(list[0].event_title)} <span>${list.length} entrée${list.length > 1 ? "s" : ""}</span></h3>
+        <h3>${esc(list[0].event_title)} <span>${sumSeats(list)} ${remind ? "inscrit" : "entrée"}${sumSeats(list) > 1 ? "s" : ""}</span></h3>
         <ul class="entries-list">${list.map((r) => `
           <li>
             <label class="entry">
               <input type="checkbox" data-entry value="${esc(r.id)}" checked>
               <span class="entry-name"><b>${esc(r.prenom)} ${esc(r.nom)}${seatsOf(r) > 1 ? ` (${seatsOf(r)} places)` : ""}</b><small>${esc(r.telephone)} · ${esc(r.reference)}</small></span>
-              <time>${new Date(r.scanned_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>
-              ${thanked.has(r.id) ? tag("Remercié", "ok") : ""}
+              ${remind ? "<span></span>" : `<time>${new Date(r.scanned_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>`}
+              ${q.sent.has(r.id) ? tag(q.done, "ok") : ""}
             </label>
           </li>`).join("")}
         </ul>
       </section>`).join("");
+    const n = sumSeats(rows);
     return `
       <section class="admin-entries">
         <div class="entries-head">
-          <p><b>${sumSeats(rows)}</b> personne${sumSeats(rows) > 1 ? "s" : ""} entrée${sumSeats(rows) > 1 ? "s" : ""}, de la première à la dernière arrivée.</p>
+          <p>${remind
+            ? `<b>${n}</b> personne${n > 1 ? "s" : ""} inscrite${n > 1 ? "s" : ""} et confirmée${n > 1 ? "s" : ""}. Envoyez le rappel la veille de l'événement.`
+            : `<b>${n}</b> personne${n > 1 ? "s" : ""} entrée${n > 1 ? "s" : ""}, de la première à la dernière arrivée.`}</p>
           <label class="consent"><input type="checkbox" data-entry-all checked> Tout sélectionner</label>
         </div>
         ${groups}
         <form class="entries-thanks" data-thanks-form novalidate>
-          <label for="thanks-text">Message de remerciement</label>
-          <textarea id="thanks-text" name="text" maxlength="600">${esc(thanksText)}</textarea>
+          <label for="thanks-text">Message de ${q.what}</label>
+          <textarea id="thanks-text" name="text" maxlength="600">${esc(q.text)}</textarea>
           <div class="admin-actions">
             <button class="btn btn--primary btn--sm" type="submit" data-thanks-count>Envoyer à la sélection (${rows.length})</button>
             ${btn("thanks-copy", "Copier les numéros")}
@@ -1201,7 +1244,7 @@
 
   const selectedEntries = () => {
     const ids = new Set($$("[data-entry]:checked", list).map((c) => c.value));
-    return entrees().filter((r) => ids.has(r.id));
+    return mode().rows().filter((r) => ids.has(r.id));
   };
   function refreshThanksCount() {
     const n = selectedEntries().length;
@@ -1214,30 +1257,32 @@
     if (!box) return;
     box.hidden = false;
     const next = queue[0];
+    const link = next && clientWa(next.telephone, fillMessage(next));
     box.innerHTML = next
       ? `<p>Prochain message : <b>${esc(next.prenom)} ${esc(next.nom)}</b> (${queue.length} restant${queue.length > 1 ? "s" : ""})</p>
-         ${clientWa(next.telephone, fillThanks(next)) ? `<a class="btn btn--primary btn--sm" data-thanks-next href="${esc(clientWa(next.telephone, fillThanks(next)))}" target="_blank" rel="noopener">Ouvrir WhatsApp pour ${esc(next.prenom)}</a>` : `<span class="admin-hint">Numéro invalide.</span>`}
+         ${link ? `<a class="btn btn--primary btn--sm" data-thanks-next href="${esc(link)}" target="_blank" rel="noopener">Ouvrir WhatsApp pour ${esc(next.prenom)}</a>` : `<span class="admin-hint">Numéro invalide.</span>`}
          ${btn("thanks-skip", "Passer")}`
       : `<p><b>Terminé.</b> Tous les messages ont été ouverts.</p>`;
   }
   const advanceQueue = (sent) => {
+    const q = mode();
     const r = queue.shift();
-    if (r && sent) { thanked.add(r.id); saveThanked(); }
+    if (r && sent) { q.sent.add(r.id); saveSent(q); }
     showQueue();
     const item = r && $(`[data-entry][value="${CSS.escape(r.id)}"]`, list)?.closest(".entry");
-    if (item && sent && !$(".admin-badge", item)) item.insertAdjacentHTML("beforeend", tag("Remercié", "ok"));
+    if (item && sent && !$(".admin-badge", item)) item.insertAdjacentHTML("beforeend", tag(q.done, "ok"));
   };
 
   list.addEventListener("change", (e) => {
     if (e.target.matches("[data-entry-all]")) $$("[data-entry]", list).forEach((c) => (c.checked = e.target.checked));
     if (e.target.matches("[data-entry], [data-entry-all]")) refreshThanksCount();
   });
-  list.addEventListener("input", (e) => { if (e.target.id === "thanks-text") thanksText = e.target.value; });
+  list.addEventListener("input", (e) => { if (e.target.id === "thanks-text" && mode()) mode().text = e.target.value; });
   list.addEventListener("submit", (e) => {
     if (!e.target.matches("[data-thanks-form]")) return;
     e.preventDefault();
+    if (!mode().text.trim()) return say(`Écrivez le message de ${mode().what}.`, true);
     queue = selectedEntries();
-    if (!thanksText.trim()) return say("Écrivez le message de remerciement.", true);
     showQueue();
   });
   list.addEventListener("click", (e) => {

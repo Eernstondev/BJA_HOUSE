@@ -1056,3 +1056,8 @@ p { margin: 0; }
 .legal-updated { font-size: var(--step--1); color: var(--grey-500) !important; }
 .footer-legal { color: var(--grey-500); margin-left: 6px; }
 .footer-legal:hover { color: var(--white); }
+
+/* ---------- Page 404 ---------- */
+.not-found { min-height: 62vh; display: grid; align-items: center; }
+.not-found p:not(.eyebrow) { max-width: 46ch; color: var(--grey-300); }
+.not-found-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }

@@ -6,7 +6,7 @@ Site vitrine de BJA HOUSE, en HTML, CSS et JavaScript sans framework. Réalisé 
 `index.html` (accueil), `galerie.html`, `activites.html`, `a-propos.html`, `contact.html`,
 `reservation.html` (réservation de 1 à 10 places, un seul billet pour le groupe), `evenement.html` (détails, places restantes, avis,
 boutons Partager et Ajouter au calendrier), `billet.html` (billet avec QR code), `partager.html` (envoi de photos pour la galerie)
-et `confidentialite.html` (données personnelles).
+`confidentialite.html` (données personnelles) et `404.html` (page introuvable).
 
 ## Mise en route
 1. Créer un projet sur [supabase.com](https://supabase.com), puis exécuter `supabase/schema.sql` dans **SQL Editor**.
@@ -15,6 +15,8 @@ et `confidentialite.html` (données personnelles).
    - `whatsapp` : numéro de BJA HOUSE au format international, sans `+` (ex. `33612345678`).
    - `currency`, `paymentMethods` et `events` (prix, lieux, dates).
 3. Déployer le dossier tel quel (GitHub Pages, Vercel ou Netlify).
+
+**Adresse du site** : l'aperçu des liens partagés (image `assets/og.jpg`), `sitemap.xml` et `robots.txt` utilisent `https://eernstondev.github.io/BJA_HOUSE/`. Avec un nom de domaine, remplacer cette adresse partout (rechercher-remplacer dans les fichiers `.html`, `sitemap.xml` et `robots.txt`).
 
 Sans Supabase configuré, les formulaires fonctionnent en mode démonstration : rien n'est enregistré.
 
@@ -36,6 +38,7 @@ Page non listée dans le menu, réservée aux comptes admin.
 Depuis le tableau de bord, l'admin gère tout le site :
 - **Réservations** : voir le reçu, confirmer ou refuser (WhatsApp s'ouvre aussitôt vers la personne avec son billet ou le refus), gérer la liste d'attente, filtrer par événement, exporter pour Excel, supprimer.
 - **Scanner** : à l'entrée, ouvrir l'espace admin sur le téléphone et scanner le QR code du billet (ou taper sa référence). Chaque billet n'est accepté qu'une fois. La caméra demande le site en ligne (https).
+- **Rappels** : les inscrits confirmés d'un événement à venir ; la veille, leur envoyer un rappel WhatsApp un par un avec le lien de leur billet (aussi via « Rappel la veille » sur la carte de l'événement).
 - **Entrées** : les personnes scannées avec leur heure d'arrivée, par événement ; sélectionner et leur envoyer un remerciement sur WhatsApp, ou copier leurs numéros.
 - **Événements** : créer, modifier (date, prix, lieu, nombre de places, image), masquer ou supprimer ; voir les inscrits. Quand un événement est complet, les inscriptions passent en liste d'attente.
 - **Photos** : publier ou refuser les photos envoyées, ajouter directement des photos à la galerie, supprimer.

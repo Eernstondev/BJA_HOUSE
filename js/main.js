@@ -54,13 +54,30 @@
     probe.src = src;
   }
 
-  /* ---------- Compte à rebours du prochain événement ---------- */
+  /* ---------- Prochain événement (accueil), lu depuis config.js ---------- */
+  const ticket = $("[data-next-event]");
+  if (ticket && window.BJA && window.BJAApi) {
+    const next = window.BJA.events
+      .filter((e) => !window.BJAApi.isPast(e))
+      .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+    if (next) {
+      const d = new Date(next.date);
+      $("[data-ne-day]", ticket).textContent = String(d.getDate()).padStart(2, "0");
+      $("[data-ne-month]", ticket).textContent = d.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "");
+      $("[data-ne-title]", ticket).textContent = next.title;
+      $("[data-ne-hours]", ticket).textContent = next.hours;
+      $("[data-ne-price]", ticket).textContent = window.BJAApi.price(next.price);
+      $("[data-countdown]", ticket).dataset.countdown = next.date;
+      ticket.href = `reservation.html#${next.id}`;
+    }
+  }
+
+  /* ---------- Compte à rebours ---------- */
   $$("[data-countdown]").forEach((el) => {
     const target = new Date(el.dataset.countdown).getTime();
     if (Number.isNaN(target)) return;
-    const parts = {
-      d: $("[data-d]", el), h: $("[data-h]", el), m: $("[data-m]", el),
-    };
+    const parts = { d: $("[data-d]", el), h: $("[data-h]", el), m: $("[data-m]", el), s: $("[data-s]", el) };
+    const pad = (n) => String(n).padStart(2, "0");
     const tick = () => {
       const diff = target - Date.now();
       if (diff <= 0) {
@@ -68,33 +85,18 @@
         return false;
       }
       parts.d.textContent = Math.floor(diff / 864e5);
-      parts.h.textContent = String(Math.floor((diff % 864e5) / 36e5)).padStart(2, "0");
-      parts.m.textContent = String(Math.floor((diff % 36e5) / 6e4)).padStart(2, "0");
+      parts.h.textContent = pad(Math.floor((diff % 864e5) / 36e5));
+      parts.m.textContent = pad(Math.floor((diff % 36e5) / 6e4));
+      if (parts.s) parts.s.textContent = pad(Math.floor((diff % 6e4) / 1e3));
       return true;
     };
     if (tick()) {
-      const id = setInterval(() => { if (!tick()) clearInterval(id); }, 30000);
+      const id = setInterval(() => { if (!tick()) clearInterval(id); }, 1000);
     }
   });
 
-  /* ---------- Événements passés (page Activités) ---------- */
-  const eventList = $(".events");
-  if (eventList) {
-    const now = Date.now();
-    $$(".event[data-date]", eventList).forEach((ev) => {
-      const end = new Date(ev.dataset.date).getTime() + 6 * 3600e3;
-      if (end < now) {
-        ev.classList.add("is-past");
-        const cta = $(".event-side .btn", ev);
-        if (cta) cta.replaceWith(Object.assign(document.createElement("span"), { className: "tag", textContent: "Terminé" }));
-        eventList.appendChild(ev); // les événements passés descendent en fin de liste
-      }
-    });
-  }
-
-  /* ---------- Filtres (galerie et activités) ---------- */
+  /* ---------- Filtres (galerie et activités) : les éléments sont relus à chaque clic ---------- */
   $$("[data-filter-group]").forEach((group) => {
-    const items = $$(group.dataset.filterGroup);
     const empty = group.dataset.emptyTarget ? $(group.dataset.emptyTarget) : null;
     const buttons = $$(".filter", group);
     buttons.forEach((btn) =>
@@ -102,7 +104,7 @@
         const cat = btn.dataset.filter;
         buttons.forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
         let visible = 0;
-        items.forEach((item) => {
+        $$(group.dataset.filterGroup).forEach((item) => {
           const show = cat === "tout" || item.dataset.cat === cat;
           item.hidden = !show;
           if (show) visible++;
@@ -112,17 +114,17 @@
     );
   });
 
-  /* ---------- Visionneuse de la galerie ---------- */
+  /* ---------- Visionneuse de la galerie (fonctionne aussi pour les photos ajoutées ensuite) ---------- */
   const lightbox = $(".lightbox");
-  if (lightbox) {
-    const tiles = $$(".gallery .tile");
+  const gallery = $(".gallery:not(.gallery--preview)");
+  if (lightbox && gallery) {
     const media = $(".lightbox-media", lightbox);
     const title = $(".lightbox-caption b", lightbox);
     const sub = $(".lightbox-caption span", lightbox);
     let current = 0;
     let lastFocus = null;
 
-    const visibleTiles = () => tiles.filter((t) => !t.hidden);
+    const visibleTiles = () => $$(".tile", gallery).filter((t) => !t.hidden);
     const show = (tile) => {
       current = visibleTiles().indexOf(tile);
       const img = $("img", tile);
@@ -155,7 +157,10 @@
       show(list[(current + dir + list.length) % list.length]);
     };
 
-    tiles.forEach((tile) => tile.addEventListener("click", () => open(tile)));
+    gallery.addEventListener("click", (e) => {
+      const tile = e.target.closest(".tile");
+      if (tile) open(tile);
+    });
     $(".lb-close", lightbox).addEventListener("click", close);
     $(".lb-prev", lightbox).addEventListener("click", () => step(-1));
     $(".lb-next", lightbox).addEventListener("click", () => step(1));
@@ -253,11 +258,23 @@
   if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
     const io = new IntersectionObserver((entries) => {
       entries.forEach((en) => {
-        if (en.isIntersecting) { en.target.classList.remove("is-pending"); io.unobserve(en.target); }
+        if (!en.isIntersecting) return;
+        const el = en.target;
+        el.classList.remove("is-pending");
+        io.unobserve(el);
+        // retire le décalage une fois l'entrée finie, pour que les survols restent instantanés
+        if (el.classList.contains("stagger")) setTimeout(() => el.classList.remove("stagger"), 1400);
       });
     }, { rootMargin: "0px 0px -8% 0px" });
     $$(".reveal").forEach((el) => {
-      if (el.getBoundingClientRect().top > innerHeight) { el.classList.add("is-pending"); io.observe(el); }
+      if (el.getBoundingClientRect().top <= innerHeight) return;
+      // les grilles apparaissent élément par élément
+      if (el.matches(".cards, .members, .gallery, .steps, .values, .team")) {
+        el.classList.add("stagger");
+        Array.from(el.children).forEach((child, i) => child.style.setProperty("--i", i));
+      }
+      el.classList.add("is-pending");
+      io.observe(el);
     });
   }
 

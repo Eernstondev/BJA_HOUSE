@@ -51,67 +51,8 @@
       <button class="filter" type="button" data-filter="sorties" aria-pressed="false">Sorties</button>
       <button class="filter" type="button" data-filter="ateliers" aria-pressed="false">Ateliers</button>
     </div>
-    <div class="events">
-      <article class="event" data-date="2026-10-25T19:00" data-cat="soirees">
-        <div class="ticket-date"><span class="ticket-day">25</span><span class="ticket-month">Oct</span></div>
-        <div class="event-body">
-          <span class="tag">Soirée</span>
-          <h3>Soirée d'automne BJA</h3>
-          <div class="ticket-meta"><span>19h00 – 23h30</span><span>Lieu communiqué aux inscrits</span></div>
-          <p>Musique, jeux et bonne ambiance pour lancer la saison. Tenue correcte, bonne humeur obligatoire.</p>
-        </div>
-        <div class="event-side"><a class="btn btn--primary" href="contact.html">S'inscrire</a></div>
-      </article>
-      <article class="event" data-date="2026-11-08T14:00" data-cat="sport">
-        <div class="ticket-date"><span class="ticket-day">08</span><span class="ticket-month">Nov</span></div>
-        <div class="event-body">
-          <span class="tag">Sport</span>
-          <h3>Tournoi de foot à 5</h3>
-          <div class="ticket-meta"><span>14h00 – 18h00</span><span>City stade, à confirmer</span></div>
-          <p>Équipes de cinq, matchs courts, remise de prix en fin d'après-midi. Inscription par équipe ou en solo.</p>
-        </div>
-        <div class="event-side"><a class="btn btn--primary" href="contact.html">S'inscrire</a></div>
-      </article>
-      <article class="event" data-date="2026-11-22T15:00" data-cat="ateliers">
-        <div class="ticket-date"><span class="ticket-day">22</span><span class="ticket-month">Nov</span></div>
-        <div class="event-body">
-          <span class="tag">Atelier</span>
-          <h3>Atelier : monter son projet</h3>
-          <div class="ticket-meta"><span>15h00 – 17h30</span><span>Salle partenaire</span></div>
-          <p>Un après-midi pour passer d'une idée à un plan concret, avec des jeunes entrepreneurs de la région.</p>
-        </div>
-        <div class="event-side"><a class="btn btn--primary" href="contact.html">S'inscrire</a></div>
-      </article>
-      <article class="event" data-date="2026-12-06T13:30" data-cat="sorties">
-        <div class="ticket-date"><span class="ticket-day">06</span><span class="ticket-month">Déc</span></div>
-        <div class="event-body">
-          <span class="tag">Sortie</span>
-          <h3>Sortie patinoire</h3>
-          <div class="ticket-meta"><span>13h30 – 17h00</span><span>Départ groupé, point de rendez-vous à venir</span></div>
-          <p>Une sortie détente avant les fêtes. Location des patins comprise pour les inscrits.</p>
-        </div>
-        <div class="event-side"><a class="btn btn--primary" href="contact.html">S'inscrire</a></div>
-      </article>
-      <article class="event" data-date="2026-12-19T20:00" data-cat="soirees">
-        <div class="ticket-date"><span class="ticket-day">19</span><span class="ticket-month">Déc</span></div>
-        <div class="event-body">
-          <span class="tag">Soirée</span>
-          <h3>Gala de fin d'année</h3>
-          <div class="ticket-meta"><span>20h00 – 01h00</span><span>Salle de réception, à confirmer</span></div>
-          <p>La grande soirée de l'année : dress code chic, photos, surprises et bilan de la saison.</p>
-        </div>
-        <div class="event-side"><a class="btn btn--primary" href="contact.html">S'inscrire</a></div>
-      </article>
-      <article class="event" data-date="2026-09-27T12:00" data-cat="sorties">
-        <div class="ticket-date"><span class="ticket-day">27</span><span class="ticket-month">Sept</span></div>
-        <div class="event-body">
-          <span class="tag">Sortie</span>
-          <h3>Pique-nique de rentrée</h3>
-          <div class="ticket-meta"><span>12h00 – 17h00</span><span>Parc municipal</span></div>
-          <p>Le rendez-vous de rentrée pour accueillir les nouveaux membres.</p>
-        </div>
-        <div class="event-side"><a class="btn btn--primary" href="contact.html">S'inscrire</a></div>
-      </article>
+    <div class="events" data-events-list>
+      <noscript><p class="events-empty">Activez JavaScript pour voir l'agenda et réserver.</p></noscript>
     </div>
     <p class="events-empty" hidden>Aucun événement de ce type pour l'instant. Revenez bientôt ou proposez-en un !</p>
   </div>
@@ -139,9 +80,9 @@
       <h2>Comment s'inscrire</h2>
     </div>
     <div class="steps reveal">
-      <div class="step"><h3>Choisir un événement</h3><p>Repérez l'activité qui vous plaît dans l'agenda ci-dessus.</p></div>
-      <div class="step"><h3>Nous écrire</h3><p>Envoyez votre demande via la page contact en précisant l'événement.</p></div>
-      <div class="step"><h3>Recevoir la confirmation</h3><p>Nous vous envoyons les détails pratiques : lieu, horaires, tarif éventuel.</p></div>
+      <div class="step"><h3>Choisir un événement</h3><p>Consultez le prix, le lieu et les moyens de paiement de l'activité dans l'agenda, puis cliquez sur « S'inscrire ».</p></div>
+      <div class="step"><h3>Payer et réserver</h3><p>Remplissez le formulaire, payez avec le moyen choisi et déposez la photo de votre reçu.</p></div>
+      <div class="step"><h3>Envoyer le reçu sur WhatsApp</h3><p>Un message pré-rempli s'ouvre : joignez la photo du reçu. Votre place est confirmée après vérification.</p></div>
     </div>
   </div>
 </section>
@@ -184,10 +125,13 @@
     </div>
     <div class="footer-bottom">
       <span>© <span data-year>2026</span> BJA HOUSE. Tous droits réservés.</span>
-      <span>Fait avec soin par l'équipe BJA</span>
+      <span>Site réalisé par <b class="credit">URBVEC ATELIER</b></span>
     </div>
   </div>
 </footer>
+<script src="js/config.js" defer></script>
+<script src="js/api.js" defer></script>
 <script src="js/main.js" defer></script>
+<script src="js/activites.js" defer></script>
 </body>
 </html>

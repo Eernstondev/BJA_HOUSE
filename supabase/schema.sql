@@ -180,6 +180,8 @@ on conflict (id) do nothing;
 -- ============ Billets, places limitées, codes promo, alertes, avis ============
 alter table public.reservations add column if not exists ticket_token  uuid not null default gen_random_uuid();
 alter table public.reservations add column if not exists liste_attente boolean not null default false;
+-- Nombre de places réservées d'un coup (un seul billet pour tout le groupe)
+alter table public.reservations add column if not exists places integer not null default 1 check (places between 1 and 10);
 alter table public.reservations add column if not exists code_promo    text check (char_length(code_promo) <= 40);
 alter table public.reservations add column if not exists scanned_at    timestamptz;
 create unique index if not exists reservations_ticket_token_key on public.reservations (ticket_token);
@@ -238,7 +240,7 @@ language sql stable set search_path = '' as $$ select (now() at time zone 'Ameri
 create or replace function public.places_restantes()
 returns table (event_id text, restantes integer)
 language sql stable security definer set search_path = '' as $$
-  select e.id, greatest(e.places - count(r.id)::int, 0)
+  select e.id, greatest(e.places - coalesce(sum(r.places), 0)::int, 0)
   from public.evenements e
   left join public.reservations r on r.event_id = e.id and not r.liste_attente and r.statut <> 'refusee'
   where e.publie and e.places is not null
@@ -269,9 +271,11 @@ end $$;
 
 -- Réservation : vérifie l'événement, compte les places, applique le code promo,
 -- crée la référence et le billet. C'est la seule façon pour le public de réserver.
+drop function if exists public.reserver(text, text, text, text, text, text, text, text);
 create or replace function public.reserver(
   p_event_id text, p_prenom text, p_nom text, p_email text, p_telephone text,
-  p_moyen_paiement text default null, p_recu_path text default null, p_code text default null)
+  p_moyen_paiement text default null, p_recu_path text default null, p_code text default null,
+  p_places integer default 1)
 returns json language plpgsql security definer set search_path = '' as $$
 declare
   ev      public.evenements;
@@ -283,16 +287,21 @@ declare
   ref     text;
   tok     uuid := gen_random_uuid();
   chars   constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  nb      integer := coalesce(p_places, 1);
 begin
+  if nb < 1 or nb > 10 then raise exception 'Vous pouvez réserver de 1 à 10 places à la fois.'; end if;
   -- verrou sur l'événement : deux réservations simultanées ne peuvent pas prendre la dernière place
   select * into ev from public.evenements where id = p_event_id and publie for update;
   if not found then raise exception 'Événement introuvable.'; end if;
   if ev.debut < public.maintenant_haiti() - interval '6 hours' then raise exception 'Cet événement est terminé.'; end if;
 
   if ev.places is not null then
-    select count(*) into pris from public.reservations
+    select coalesce(sum(places), 0) into pris from public.reservations
     where event_id = ev.id and not liste_attente and statut <> 'refusee';
     attente := pris >= ev.places;
+    if not attente and pris + nb > ev.places then
+      raise exception 'Il ne reste que % place(s) pour cet événement.', ev.places - pris;
+    end if;
   end if;
 
   prix := ev.prix;
@@ -307,6 +316,8 @@ begin
     end if;
   end if;
 
+  prix := prix * nb;  -- prix total du groupe (le code promo s'applique à chaque place)
+
   if prix > 0 and not attente then
     if coalesce(p_moyen_paiement, '') not in ('MonCash', 'NatCash') then raise exception 'Choisissez MonCash ou NatCash.'; end if;
     if coalesce(p_recu_path, '') = '' then raise exception 'La photo du reçu est obligatoire.'; end if;
@@ -318,12 +329,12 @@ begin
   end loop;
 
   insert into public.reservations (reference, event_id, event_title, prenom, nom, email, telephone,
-    moyen_paiement, montant, recu_path, ticket_token, liste_attente, code_promo)
+    moyen_paiement, montant, recu_path, ticket_token, liste_attente, code_promo, places)
   values (ref, ev.id, ev.titre, trim(p_prenom), trim(p_nom), trim(p_email), trim(p_telephone),
     case when prix > 0 and not attente then p_moyen_paiement end, prix,
-    case when prix > 0 and not attente then p_recu_path end, tok, attente, v_code);
+    case when prix > 0 and not attente then p_recu_path end, tok, attente, v_code, nb);
 
-  return json_build_object('reference', ref, 'ticket_token', tok, 'liste_attente', attente, 'montant', prix);
+  return json_build_object('reference', ref, 'ticket_token', tok, 'liste_attente', attente, 'montant', prix, 'places', nb);
 end $$;
 
 -- Billet : lisible uniquement avec son jeton secret (celui du QR code)
@@ -331,7 +342,7 @@ create or replace function public.billet(p_token uuid)
 returns json language sql stable security definer set search_path = '' as $$
   select json_build_object(
     'reference', r.reference, 'prenom', r.prenom, 'nom', r.nom, 'statut', r.statut,
-    'liste_attente', r.liste_attente, 'montant', r.montant, 'scanned_at', r.scanned_at,
+    'liste_attente', r.liste_attente, 'montant', r.montant, 'scanned_at', r.scanned_at, 'places', r.places,
     'event_id', r.event_id, 'evenement', coalesce(e.titre, r.event_title),
     'debut', e.debut, 'horaires', e.horaires, 'lieu', e.lieu)
   from public.reservations r left join public.evenements e on e.id = r.event_id
@@ -357,10 +368,10 @@ begin
     return json_build_object('resultat', 'non_confirme', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'statut', r.statut, 'liste_attente', r.liste_attente);
   end if;
   if r.scanned_at is not null then
-    return json_build_object('resultat', 'deja', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'scanned_at', r.scanned_at);
+    return json_build_object('resultat', 'deja', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'scanned_at', r.scanned_at, 'places', r.places);
   end if;
   update public.reservations set scanned_at = now() where id = r.id;
-  return json_build_object('resultat', 'ok', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'scanned_at', now());
+  return json_build_object('resultat', 'ok', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'scanned_at', now(), 'places', r.places);
 end $$;
 
 -- Avis : seulement par une personne dont la réservation est confirmée, après l'événement, une fois.
@@ -395,10 +406,10 @@ begin
 end $$;
 
 revoke execute on function public.places_restantes(), public.verifier_code(text, text),
-  public.reserver(text, text, text, text, text, text, text, text), public.billet(uuid),
+  public.reserver(text, text, text, text, text, text, text, text, integer), public.billet(uuid),
   public.valider_entree(text), public.laisser_avis(text, integer, text, text) from public;
 grant execute on function public.places_restantes(), public.verifier_code(text, text),
-  public.reserver(text, text, text, text, text, text, text, text), public.billet(uuid),
+  public.reserver(text, text, text, text, text, text, text, text, integer), public.billet(uuid),
   public.laisser_avis(text, integer, text, text) to anon, authenticated;
 grant execute on function public.valider_entree(text) to authenticated;
 

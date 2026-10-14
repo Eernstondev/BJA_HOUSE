@@ -27,6 +27,35 @@ window.BJAApi.ready.then(() => {
     ${ev.image ? `<img class="event-detail-img" src="${esc(ev.image)}" alt="">` : ""}
     <p class="event-detail-desc">${esc(ev.desc)}</p>`;
 
+  /* ---------- Agenda : heure d'Haïti convertie en UTC ---------- */
+  function haitiToUtc(y, mo, d, h, mi) {
+    const guess = Date.UTC(y, mo - 1, d, h, mi);
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Port-au-Prince", hourCycle: "h23",
+      year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric"
+    }).formatToParts(guess).map((p) => [p.type, Number(p.value)]));
+    const shown = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+    return new Date(guess - (shown - guess));
+  }
+  function times() {
+    const [y, mo, d, h, mi] = ev.date.split(/[-T:]/).map(Number);
+    const start = haitiToUtc(y, mo, d, h || 0, mi || 0);
+    const hm = String(ev.hours || "").match(/(\d{1,2})\s*h\s*(\d{2})?\D+(\d{1,2})\s*h\s*(\d{2})?/i);
+    if (!hm) return [start, new Date(start.getTime() + 4 * 3600e3)];
+    let end = haitiToUtc(y, mo, d, Number(hm[3]), Number(hm[4] || 0));
+    if (end <= start) end = new Date(end.getTime() + 24 * 3600e3);
+    return [start, end];
+  }
+  const stamp = (dt) => dt.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  function gcalUrl() {
+    const [start, end] = times();
+    const q = new URLSearchParams({
+      action: "TEMPLATE", text: ev.title, dates: `${stamp(start)}/${stamp(end)}`,
+      details: `${ev.desc || ""}\n${location.href}`, location: ev.place || ""
+    });
+    return `https://calendar.google.com/calendar/render?${q}`;
+  }
+
   const seats = ev.remaining == null ? ""
     : `<div><dt>Places</dt><dd>${full ? "Complet" : `${ev.remaining} restante${ev.remaining > 1 ? "s" : ""}`}</dd></div>`;
   side.innerHTML = `
@@ -38,7 +67,54 @@ window.BJAApi.ready.then(() => {
       <div><dt>Prix</dt><dd class="price price--big">${esc(api.price(ev.price))}</dd></div>
     </dl>
     ${past ? `<span class="tag">Terminé</span>`
-      : `<a class="btn btn--primary btn--block" href="reservation.html#${encodeURIComponent(ev.id)}">${full ? "Rejoindre la liste d'attente" : "Réserver ma place"} <span class="arrow" aria-hidden="true">→</span></a>`}`;
+      : `<a class="btn btn--primary btn--block" href="reservation.html#${encodeURIComponent(ev.id)}">${full ? "Rejoindre la liste d'attente" : "Réserver ma place"} <span class="arrow" aria-hidden="true">→</span></a>`}
+    ${past ? "" : `<div class="event-share">
+      <div class="event-share-row">
+        <button class="btn btn--ghost btn--sm" type="button" data-share>Partager</button>
+        <button class="btn btn--ghost btn--sm" type="button" data-ics>Ajouter au calendrier</button>
+      </div>
+      <a class="gcal" href="${esc(gcalUrl())}" target="_blank" rel="noopener">Ou l'ajouter dans Google Agenda</a>
+      <p class="event-share-msg" data-share-msg aria-live="polite"></p>
+    </div>`}`;
+
+  if (!past) {
+    const msg = $("[data-share-msg]", side);
+    const url = location.href.split("#")[0] + "#" + encodeURIComponent(ev.id);
+    const text = `${ev.title} · ${api.eventDate(ev)}, ${ev.hours} · ${ev.place}`;
+    $("[data-share]", side).addEventListener("click", async () => {
+      if (navigator.share) {
+        try { await navigator.share({ title: ev.title, text, url }); } catch { /* partage annulé */ }
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        msg.innerHTML = `Lien copié. <a href="https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}" target="_blank" rel="noopener">Envoyer sur WhatsApp</a>`;
+      } catch {
+        window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`, "_blank", "noopener");
+      }
+    });
+    $("[data-ics]", side).addEventListener("click", () => {
+      const [start, end] = times();
+      const icsEsc = (t) => String(t).replace(/[\\;,]/g, (c) => "\\" + c).replace(/\n/g, "\\n");
+      const ics = [
+        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//BJA HOUSE//FR", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        `UID:${ev.id}@bja-house`, `DTSTAMP:${stamp(new Date())}`,
+        `DTSTART:${stamp(start)}`, `DTEND:${stamp(end)}`,
+        `SUMMARY:${icsEsc(ev.title)}`, `DESCRIPTION:${icsEsc(`${ev.desc || ""}\n${url}`)}`,
+        `LOCATION:${icsEsc(ev.place || "")}`, `URL:${url}`,
+        "END:VEVENT", "END:VCALENDAR", ""
+      ].join("\r\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+      a.download = `${ev.id}.ics`;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      msg.textContent = "Fichier ajouté : ouvrez-le pour l'enregistrer dans votre agenda.";
+    });
+  }
 
   /* ---------- Avis ---------- */
   const section = $("[data-reviews]");

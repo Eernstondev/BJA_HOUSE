@@ -1030,3 +1030,29 @@ p { margin: 0; }
 }
 .md-social:hover { background: var(--royal); border-color: var(--royal); color: var(--white); }
 .admin-note { padding: 14px 16px; border-radius: var(--radius); background: var(--royal-soft); color: var(--royal-deep); font-size: var(--step--1); }
+
+/* Nombre de places */
+.qty { display: inline-flex; align-items: stretch; border: 1px solid var(--grey-300); border-radius: var(--radius); overflow: hidden; width: max-content; }
+.qty input { width: 64px; border: 0 !important; border-radius: 0 !important; text-align: center; font: 700 1.1rem var(--font-display); -moz-appearance: textfield; padding: 10px 4px !important; }
+.qty input::-webkit-inner-spin-button, .qty input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.qty-btn { width: 48px; border: 0; background: var(--paper); color: var(--royal-deep); font-size: 1.4rem; cursor: pointer; transition: background-color .2s; }
+.qty-btn:hover { background: var(--royal-soft); }
+
+/* Partager / calendrier */
+.event-share { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, .15); }
+.event-share-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.event-share .btn { flex: 1 1 auto; justify-content: center; color: var(--white); border-color: rgba(255, 255, 255, .45); }
+.event-share .btn:hover { background: var(--white); color: var(--royal-deep); }
+.event-share-msg { font-size: .8rem; color: var(--grey-300); min-height: 1em; }
+.event-share a.gcal { font-size: .8rem; color: var(--grey-300); }
+.event-share-msg a { color: var(--white); font-weight: 600; }
+
+/* Page Confidentialité */
+.legal { max-width: 760px; display: grid; gap: 14px; }
+.legal h2 { font-size: var(--step-1); margin-top: 18px; }
+.legal p, .legal li { color: var(--grey-700); }
+.legal ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.legal a { color: var(--royal); }
+.legal-updated { font-size: var(--step--1); color: var(--grey-500) !important; }
+.footer-legal { color: var(--grey-500); margin-left: 6px; }
+.footer-legal:hover { color: var(--white); }

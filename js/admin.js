@@ -247,6 +247,8 @@
     || data.reservations.find((r) => r.event_id === id)?.event_title || id;
   const confirmMsg = (r) => `Bonjour ${r.prenom}, votre paiement est vérifié : votre réservation ${r.reference} pour « ${r.event_title} » est confirmée. Voici votre billet avec QR code, à présenter à l'entrée : ${ticketUrl(r)} À bientôt ! BJA HOUSE`;
   const refuseMsg = (r) => `Bonjour ${r.prenom}, nous n'avons pas pu valider le paiement de votre réservation ${r.reference} pour « ${r.event_title} ». Répondez à ce message pour régulariser. BJA HOUSE`;
+  const seatsOf = (r) => Number(r.places) || 1;
+  const sumSeats = (list) => list.reduce((n, r) => n + seatsOf(r), 0);
   const ticketUrl = (r) => new URL(`billet.html?t=${r.ticket_token}`, location.href).href;
   const waBtn = (href, label) =>
     href ? `<a class="btn btn--outline btn--sm" href="${esc(href)}" target="_blank" rel="noopener">${label}</a>` : "";
@@ -254,14 +256,15 @@
   function stats() {
     const confirmed = data.reservations.filter((r) => r.statut === "confirmee");
     const total = confirmed.reduce((sum, r) => sum + Number(r.montant || 0), 0);
-    const plural = confirmed.length > 1 ? "s" : "";
+    const nbSeats = sumSeats(confirmed);
+    const plural = nbSeats > 1 ? "s" : "";
     const upcoming = data.evenements.filter((e) => e.publie && !isPastEvent(e)).length;
     $("[data-stats]").innerHTML = `
       <div><b>${data.reservations.filter(TABS.reservations.pending).length}</b><span>Réservations à vérifier</span></div>
       <div><b>${data.photos.filter(TABS.photos.pending).length}</b><span>Photos en attente</span></div>
       <div><b>${data.messages.filter(TABS.messages.pending).length}</b><span>Messages non traités</span></div>
       <div><b>${upcoming}</b><span>Événement${upcoming > 1 ? "s" : ""} à venir</span></div>
-      <div><b>${esc(total > 0 ? api.price(total) : `0 ${cfg.currency}`)}</b><span>${confirmed.length} place${plural} confirmée${plural}</span></div>`;
+      <div><b>${esc(total > 0 ? api.price(total) : `0 ${cfg.currency}`)}</b><span>${nbSeats} place${plural} confirmée${plural}</span></div>`;
   }
 
   function tabsBar() {
@@ -316,7 +319,7 @@
         <div class="admin-card-head"><span class="admin-ref">${esc(r.reference)}</span>${r.liste_attente ? tag("Liste d'attente", "wait") : badge(r.statut)}${r.scanned_at ? tag("Entré", "ok") : ""}<time>${when(r.created_at)}</time></div>
         <h3>${esc(r.event_title)}</h3>
         <dl class="admin-facts">
-          <div><dt>Client</dt><dd>${esc(r.prenom)} ${esc(r.nom)}</dd></div>
+          <div><dt>Client</dt><dd>${esc(r.prenom)} ${esc(r.nom)}${seatsOf(r) > 1 ? ` · <b>${seatsOf(r)} places</b>` : ""}</dd></div>
           <div><dt>Téléphone</dt><dd><a href="tel:${esc(r.telephone)}">${esc(r.telephone)}</a></dd></div>
           <div><dt>E-mail</dt><dd>${esc(r.email)}</dd></div>
           <div><dt>Paiement</dt><dd>${esc(payLabel(r.moyen_paiement))} · ${esc(api.price(Number(r.montant)))}${r.code_promo ? ` · code ${esc(r.code_promo)}` : ""}</dd></div>
@@ -335,10 +338,10 @@
 
     evenements: (e) => {
       const resa = data.reservations.filter((r) => r.event_id === e.id);
-      const ok = resa.filter((r) => r.statut === "confirmee" && !r.liste_attente).length;
-      const wait = resa.filter((r) => r.statut === "en_attente" && !r.liste_attente).length;
-      const queue = resa.filter((r) => r.liste_attente).length;
-      const taken = resa.filter((r) => !r.liste_attente && r.statut !== "refusee").length;
+      const ok = sumSeats(resa.filter((r) => r.statut === "confirmee" && !r.liste_attente));
+      const wait = sumSeats(resa.filter((r) => r.statut === "en_attente" && !r.liste_attente));
+      const queue = sumSeats(resa.filter((r) => r.liste_attente));
+      const taken = sumSeats(resa.filter((r) => !r.liste_attente && r.statut !== "refusee"));
       return `
       <article class="admin-card" data-id="${esc(e.id)}">
         ${e.image_path ? `<img class="admin-cover" src="${esc(siteImage(e.image_path))}" alt="" loading="lazy">` : ""}
@@ -691,7 +694,7 @@
       ["Référence", (r) => r.reference], ["Date", (r) => new Date(r.created_at).toLocaleString("fr-FR")],
       ["Événement", (r) => r.event_title], ["Prénom", (r) => r.prenom], ["Nom", (r) => r.nom],
       ["Téléphone", (r) => r.telephone], ["E-mail", (r) => r.email], ["Paiement", (r) => payLabel(r.moyen_paiement)],
-      ["Montant", (r) => String(r.montant).replace(".", ",")], ["Code promo", (r) => r.code_promo],
+      ["Places", (r) => seatsOf(r)], ["Montant", (r) => String(r.montant).replace(".", ",")], ["Code promo", (r) => r.code_promo],
       ["Statut", (r) => (r.liste_attente ? "Liste d'attente" : STATUS[r.statut][0])],
       ["Entrée", (r) => (r.scanned_at ? new Date(r.scanned_at).toLocaleString("fr-FR") : "")],
     ]);
@@ -1110,7 +1113,7 @@
     scanResult("idle", "Vérification…", "");
     try {
       const r = await db.rpc("valider_entree", { p_code: code });
-      const who = r.nom ? `${r.nom} · ${r.reference}` : "";
+      const who = r.nom ? `${r.nom} · ${r.reference}${r.places > 1 ? `\n${r.places} personnes avec ce billet` : ""}` : "";
       if (r.resultat === "ok") {
         scanResult("ok", "Entrée validée", `${who}\n${r.evenement}`);
         const resa = data.reservations.find((x) => x.reference === r.reference);
@@ -1170,7 +1173,7 @@
           <li>
             <label class="entry">
               <input type="checkbox" data-entry value="${esc(r.id)}" checked>
-              <span class="entry-name"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${esc(r.telephone)} · ${esc(r.reference)}</small></span>
+              <span class="entry-name"><b>${esc(r.prenom)} ${esc(r.nom)}${seatsOf(r) > 1 ? ` (${seatsOf(r)} places)` : ""}</b><small>${esc(r.telephone)} · ${esc(r.reference)}</small></span>
               <time>${new Date(r.scanned_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>
               ${thanked.has(r.id) ? tag("Remercié", "ok") : ""}
             </label>
@@ -1180,7 +1183,7 @@
     return `
       <section class="admin-entries">
         <div class="entries-head">
-          <p><b>${rows.length}</b> personne${rows.length > 1 ? "s" : ""} entrée${rows.length > 1 ? "s" : ""}, de la première à la dernière arrivée.</p>
+          <p><b>${sumSeats(rows)}</b> personne${sumSeats(rows) > 1 ? "s" : ""} entrée${sumSeats(rows) > 1 ? "s" : ""}, de la première à la dernière arrivée.</p>
           <label class="consent"><input type="checkbox" data-entry-all checked> Tout sélectionner</label>
         </div>
         ${groups}
@@ -1252,10 +1255,11 @@
     const row = (id) => rows.get(id) || rows.set(id, { id, ok: 0, wait: 0, queue: 0, in: 0, revenue: 0, notes: [] }).get(id);
     data.reservations.forEach((r) => {
       const x = row(r.event_id);
-      if (r.liste_attente) x.queue++;
-      else if (r.statut === "confirmee") { x.ok++; x.revenue += Number(r.montant || 0); }
-      else if (r.statut === "en_attente") x.wait++;
-      if (r.scanned_at) x.in++;
+      const n = seatsOf(r);
+      if (r.liste_attente) x.queue += n;
+      else if (r.statut === "confirmee") { x.ok += n; x.revenue += Number(r.montant || 0); }
+      else if (r.statut === "en_attente") x.wait += n;
+      if (r.scanned_at) x.in += n;
     });
     data.avis.forEach((a) => row(a.event_id).notes.push(a.note));
     const debut = (id) => data.evenements.find((e) => e.id === id)?.debut || "";

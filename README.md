@@ -38,7 +38,7 @@ Depuis le tableau de bord, l'admin gère tout le site :
 - **Entrées** : les personnes scannées avec leur heure d'arrivée, par événement ; sélectionner et leur envoyer un remerciement sur WhatsApp, ou copier leurs numéros.
 - **Événements** : créer, modifier (date, prix, lieu, nombre de places, image), masquer ou supprimer ; voir les inscrits. Quand un événement est complet, les inscriptions passent en liste d'attente.
 - **Photos** : publier ou refuser les photos envoyées, ajouter directement des photos à la galerie, supprimer.
-- **Membres** : ajouter, modifier (photo, rôle, présentation, ordre), masquer ou supprimer.
+- **Membres** : ajouter, modifier (photo, rôle, présentation, liens Instagram/TikTok/Facebook/LinkedIn, ordre), masquer ou supprimer.
 - **Messages** : lire, répondre sur WhatsApp, marquer comme traité, supprimer.
 - **Avis** : notes et commentaires laissés après un événement (avec la référence du billet) ; masquer ou supprimer.
 - **Abonnés** : e-mails et numéros WhatsApp inscrits aux alertes ; exporter, copier la liste pour un envoi groupé.

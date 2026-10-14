@@ -383,7 +383,7 @@
         <div class="admin-member-body">
           <div class="admin-card-head"><span class="admin-ref">N° ${esc(m.ordre)}</span>${m.publie ? tag("Visible", "ok") : tag("Masqué", "no")}</div>
           <h3>${esc(m.nom)}</h3>
-          <p class="admin-meta">${esc(m.role)}</p>
+          <p class="admin-meta">${esc(m.role)}${SOCIALS.some((k) => m[k]) ? ` · ${SOCIALS.filter((k) => m[k]).map((k) => SOCIAL_LABELS[k]).join(", ")}` : ""}</p>
         </div>
         <div class="admin-actions">
           ${btn("member-edit", "Modifier", "primary")}
@@ -492,8 +492,7 @@
         </div>
         <p class="form-status" role="status" hidden></p>
         <button class="btn btn--primary" type="submit">Enregistrer les réglages</button>
-        <p class="admin-hint">Ajouter un autre admin : créez son compte dans Supabase (Authentication → Users), puis lancez dans SQL Editor :
-          <code>insert into public.admins (user_id) select id from auth.users where email = 'son@email.com';</code></p>
+        <p class="admin-note">Pour ajouter d'autres admins, contactez l'équipe <b>URBVEC ATELIER</b>.</p>
       </form>`;
   }
 
@@ -839,6 +838,8 @@
   }
 
   /* ---------- Membre ---------- */
+  const SOCIALS = ["instagram", "tiktok", "facebook", "linkedin"];
+  const SOCIAL_LABELS = { instagram: "Instagram", tiktok: "TikTok", facebook: "Facebook", linkedin: "LinkedIn" };
   function memberEditor(m = null) {
     const v = (k, d = "") => esc(m?.[k] ?? d);
     const nextOrder = Math.max(0, ...data.membres.map((x) => x.ordre)) + 1;
@@ -848,6 +849,14 @@
         <div class="field"><label for="ed-role">Rôle</label><input id="ed-role" name="role" maxlength="80" required placeholder="Président·e, Trésorier·e…" value="${v("role")}"></div>
       </div>
       <div class="field"><label for="ed-bio">Présentation</label><textarea id="ed-bio" name="bio" maxlength="600">${v("bio")}</textarea></div>
+      <div class="form-row">
+        <div class="field"><label for="ed-instagram">Instagram</label><input id="ed-instagram" name="instagram" type="url" maxlength="300" placeholder="https://www.instagram.com/…" value="${v("instagram")}"></div>
+        <div class="field"><label for="ed-tiktok">TikTok</label><input id="ed-tiktok" name="tiktok" type="url" maxlength="300" placeholder="https://www.tiktok.com/@…" value="${v("tiktok")}"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label for="ed-facebook">Facebook</label><input id="ed-facebook" name="facebook" type="url" maxlength="300" placeholder="https://www.facebook.com/…" value="${v("facebook")}"></div>
+        <div class="field"><label for="ed-linkedin">LinkedIn</label><input id="ed-linkedin" name="linkedin" type="url" maxlength="300" placeholder="https://www.linkedin.com/in/…" value="${v("linkedin")}"></div>
+      </div>
       <div class="field"><label for="ed-ordre">Position dans la liste (1 = en premier)</label><input id="ed-ordre" name="ordre" type="number" step="1" inputmode="numeric" value="${v("ordre", nextOrder)}"></div>
       ${fileField("photo", "Photo (facultatif)", m?.photo_path ? siteImage(m.photo_path) : "")}
       <label class="consent"><input type="checkbox" name="publie"${!m || m.publie ? " checked" : ""}> Visible sur le site</label>`,
@@ -858,6 +867,12 @@
           nom: f.nom.value.trim(), role: f.role.value.trim(), bio: f.bio.value.trim(),
           ordre: Math.trunc(Number(f.ordre.value) || 0), publie: f.publie.checked,
         };
+        for (const k of SOCIALS) {
+          let url = f[k].value.trim();
+          if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
+          row[k] = url ? url.replace(/^http:/i, "https:") : null;
+          if (url && !/^https:\/\/[^\s]+\.[^\s]+$/i.test(row[k])) return `Lien ${SOCIAL_LABELS[k]} invalide.`;
+        }
         if (row.nom.length < 2) return "Indiquez le nom.";
         if (row.role.length < 2) return "Indiquez le rôle.";
         const file = f.photo.files[0];
@@ -995,7 +1010,6 @@
             <button class="btn btn--primary btn--sm" type="submit">Valider</button>
           </div>
         </form>
-        <p class="admin-hint">La caméra ne s'ouvre que sur le site en ligne (adresse en https). Chaque billet ne peut être validé qu'une seule fois.</p>
       </section>`;
   }
 
@@ -1173,7 +1187,6 @@
         <form class="entries-thanks" data-thanks-form novalidate>
           <label for="thanks-text">Message de remerciement</label>
           <textarea id="thanks-text" name="text" maxlength="600">${esc(thanksText)}</textarea>
-          <span class="admin-hint">{prenom} et {evenement} sont remplacés pour chaque personne.</span>
           <div class="admin-actions">
             <button class="btn btn--primary btn--sm" type="submit" data-thanks-count>Envoyer à la sélection (${rows.length})</button>
             ${btn("thanks-copy", "Copier les numéros")}

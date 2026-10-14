@@ -1020,3 +1020,13 @@ p { margin: 0; }
 .entries-thanks textarea { font: inherit; width: 100%; min-height: 96px; border: 1px solid var(--grey-300); border-radius: var(--radius); padding: 10px 12px; resize: vertical; }
 .entries-queue { background: var(--royal-soft); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .entries-queue p { flex: 1 1 100%; margin: 0; }
+
+/* Réseaux sociaux des membres */
+.md-socials { display: flex; flex-wrap: wrap; gap: 8px; }
+.md-social {
+  display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--grey-300);
+  font: 600 .78rem/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--royal-deep); text-decoration: none;
+  transition: background-color .2s, color .2s, border-color .2s;
+}
+.md-social:hover { background: var(--royal); border-color: var(--royal); color: var(--white); }
+.admin-note { padding: 14px 16px; border-radius: var(--radius); background: var(--royal-soft); color: var(--royal-deep); font-size: var(--step--1); }

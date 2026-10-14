@@ -119,6 +119,11 @@ create table if not exists public.membres (
   publie     boolean not null default true
 );
 alter table public.membres enable row level security;
+-- Réseaux sociaux de chaque membre (liens https, facultatifs)
+alter table public.membres add column if not exists instagram text check (instagram is null or (instagram ~ '^https://' and char_length(instagram) <= 300));
+alter table public.membres add column if not exists tiktok    text check (tiktok    is null or (tiktok    ~ '^https://' and char_length(tiktok)    <= 300));
+alter table public.membres add column if not exists facebook  text check (facebook  is null or (facebook  ~ '^https://' and char_length(facebook)  <= 300));
+alter table public.membres add column if not exists linkedin  text check (linkedin  is null or (linkedin  ~ '^https://' and char_length(linkedin)  <= 300));
 drop policy if exists "membres: lecture publique" on public.membres;
 create policy "membres: lecture publique" on public.membres
   for select to anon using (publie);
@@ -359,7 +364,8 @@ begin
 end $$;
 
 -- Avis : seulement par une personne dont la réservation est confirmée, après l'événement, une fois.
-create or replace function public.laisser_avis(p_code text, p_note integer, p_commentaire text)
+drop function if exists public.laisser_avis(text, integer, text);
+create or replace function public.laisser_avis(p_code text, p_note integer, p_commentaire text, p_event_id text default null)
 returns json language plpgsql security definer set search_path = '' as $$
 declare
   r  public.reservations;
@@ -375,7 +381,13 @@ begin
     raise exception 'Référence introuvable ou réservation non confirmée.';
   end if;
   select * into ev from public.evenements where id = r.event_id;
-  if found and ev.debut > public.maintenant_haiti() then raise exception 'Vous pourrez laisser un avis après l''événement.'; end if;
+  -- La référence doit correspondre à l'événement de la page
+  if p_event_id is not null and r.event_id <> p_event_id then
+    raise exception 'Cette référence correspond à une autre réservation (« % »), pas à cet événement.', r.event_title;
+  end if;
+  if found and ev.debut > public.maintenant_haiti() then
+    raise exception 'Vous pourrez laisser un avis sur « % » après l''événement.', ev.titre;
+  end if;
   if exists (select 1 from public.avis where reservation_id = r.id) then raise exception 'Vous avez déjà laissé un avis pour cet événement.'; end if;
   insert into public.avis (event_id, reservation_id, auteur, note, commentaire)
   values (r.event_id, r.id, r.prenom || ' ' || left(r.nom, 1) || '.', p_note, left(trim(coalesce(p_commentaire, '')), 800));
@@ -384,10 +396,10 @@ end $$;
 
 revoke execute on function public.places_restantes(), public.verifier_code(text, text),
   public.reserver(text, text, text, text, text, text, text, text), public.billet(uuid),
-  public.valider_entree(text), public.laisser_avis(text, integer, text) from public;
+  public.valider_entree(text), public.laisser_avis(text, integer, text, text) from public;
 grant execute on function public.places_restantes(), public.verifier_code(text, text),
   public.reserver(text, text, text, text, text, text, text, text), public.billet(uuid),
-  public.laisser_avis(text, integer, text) to anon, authenticated;
+  public.laisser_avis(text, integer, text, text) to anon, authenticated;
 grant execute on function public.valider_entree(text) to authenticated;
 
 -- ============ Espace admin ============

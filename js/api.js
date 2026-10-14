@@ -100,6 +100,7 @@ window.BJAApi = (() => {
 
   const toMember = (r) => ({
     name: r.nom, role: r.role, bio: r.bio, photo: r.photo_path ? publicUrl("site", r.photo_path) : null,
+    links: ["instagram", "tiktok", "facebook", "linkedin"].filter((k) => /^https:\/\//.test(r[k] || "")).map((k) => [k, r[k]]),
   });
 
   const ready = (async () => {
@@ -109,7 +110,7 @@ window.BJAApi = (() => {
       const [settings, events, members] = await Promise.race([Promise.all([
         select("reglages", "select=*&id=eq.1"),
         select("evenements", "select=*&order=debut.asc"),
-        select("membres", "select=nom,role,bio,photo_path&order=ordre.asc,created_at.asc"),
+        select("membres", "select=nom,role,bio,photo_path,instagram,tiktok,facebook,linkedin&order=ordre.asc,created_at.asc"),
       ]), timeout]);
       applySettings(settings[0]);
       cfg.events = events.map(toEvent);

@@ -96,6 +96,7 @@ window.BJAApi = (() => {
     place: r.lieu, price: Number(r.prix), desc: r.description,
     image: r.image_path ? publicUrl("site", r.image_path) : null,
     places: r.places ?? null, remaining: null,
+    priceVip: r.prix_vip == null ? null : Number(r.prix_vip), placesVip: r.places_vip ?? null, remainingVip: null,
   });
 
   const toMember = (r) => ({
@@ -117,7 +118,7 @@ window.BJAApi = (() => {
       cfg.members = members.map(toMember);
       // Places restantes (événements à places limitées). Ne bloque pas le site si la fonction manque.
       const left = await Promise.race([rpc("places_restantes"), timeout]).catch(() => []);
-      left.forEach((l) => { const ev = findEvent(l.event_id); if (ev) ev.remaining = l.restantes; });
+      left.forEach((l) => { const ev = findEvent(l.event_id); if (ev) { ev.remaining = l.restantes ?? null; ev.remainingVip = l.restantes_vip ?? null; } });
     } catch {
       /* base injoignable ou pas encore installée : config.js reste utilisé */
     }

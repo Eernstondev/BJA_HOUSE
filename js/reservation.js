@@ -24,10 +24,14 @@ window.BJAApi.ready.then(() => {
   }
 
   const full = ev.remaining === 0;           // complet : inscription sur liste d'attente
+  const hasVip = ev.priceVip != null && !full;
+  const vipSoldOut = ev.remainingVip === 0;
+  let type = "standard";                     // standard ou vip
+  const base = () => (type === "vip" ? ev.priceVip : ev.price);
   let price = ev.price;                      // prix après code promo
   let promoCode = "";
   let qty = 1;                               // nombre de places réservées
-  const maxQty = full || ev.remaining == null ? 10 : Math.min(10, ev.remaining);
+  const maxQty = () => (full ? 10 : Math.min(10, ev.remaining ?? 10, type === "vip" ? ev.remainingVip ?? 10 : 10));
   const needPayment = () => price > 0 && !full;
   document.title = `Réserver : ${ev.title} · BJA HOUSE`;
 
@@ -42,6 +46,7 @@ window.BJAApi.ready.then(() => {
       <div><dt>Horaires</dt><dd>${esc(ev.hours)}</dd></div>
       <div><dt>Lieu</dt><dd>${esc(ev.place)}</dd></div>
       ${seats}
+      ${hasVip ? `<div><dt>Billet</dt><dd data-type-label>Standard</dd></div>` : ""}
       <div><dt>Prix par place</dt><dd class="price" data-price>${esc(api.price(ev.price))}</dd></div>
       <div data-total-row><dt>Total</dt><dd class="price price--big" data-total></dd></div>
     </dl>
@@ -53,19 +58,21 @@ window.BJAApi.ready.then(() => {
       ? `<b>Liste d'attente</b><p>L'événement est complet. Ne payez rien : on vous prévient si une place se libère.</p>`
       : price > 0
         ? `<b>Comment payer</b><p>Choisissez un moyen de paiement dans le formulaire : les instructions s'affichent. Gardez une photo du reçu, elle vous sera demandée.</p>`
-        : `<b>${ev.price > 0 ? "Gratuit avec votre code" : "Événement gratuit"}</b><p>Aucun paiement n'est demandé, il suffit de réserver votre place.</p>`;
-    $("[data-price]").innerHTML = price !== ev.price
-      ? `<s>${esc(api.price(ev.price))}</s> ${esc(api.price(price))}`
+        : `<b>${base() > 0 ? "Gratuit avec votre code" : "Événement gratuit"}</b><p>Aucun paiement n'est demandé, il suffit de réserver votre place.</p>`;
+    $("[data-price]").innerHTML = price !== base()
+      ? `<s>${esc(api.price(base()))}</s> ${esc(api.price(price))}`
       : esc(api.price(price));
     $("[data-total]").textContent = `${api.price(price * qty)}${qty > 1 ? ` · ${qty} places` : ""}`;
-    $("[data-total-row]").hidden = ev.price <= 0 && qty === 1;
+    $("[data-total-row]").hidden = base() <= 0 && qty === 1;
+    const label = $("[data-type-label]");
+    if (label) label.textContent = type === "vip" ? "VIP" : "Standard";
     // Les champs de paiement ne servent que si un montant reste à payer
     [$("[data-payment-options]"), $("#paiement-error"), $("#recu")?.closest(".field")].forEach((el) => { if (el) el.hidden = !needPayment(); });
   }
 
   /* ---------- Moyens de paiement ---------- */
   const payBlock = $("[data-payment-block]");
-  if (ev.price <= 0 || full) {
+  if ((ev.price <= 0 && !(hasVip && ev.priceVip > 0)) || full) {
     payBlock.remove();
   } else {
     $("[data-payment-options]").innerHTML = cfg.paymentMethods.map((m) => `
@@ -78,15 +85,37 @@ window.BJAApi.ready.then(() => {
     $("[data-waitlist]").hidden = false;
     $("button[type=submit]", form).innerHTML = `Rejoindre la liste d'attente <span class="arrow" aria-hidden="true">→</span>`;
   }
+  /* ---------- Type de billet : Standard ou VIP ---------- */
+  if (hasVip) {
+    $(".qty-field", form).insertAdjacentHTML("beforebegin", `
+      <div class="field ticket-types" role="radiogroup" aria-label="Type de billet">
+        <span class="field-label">Type de billet</span>
+        <label class="ticket-type">
+          <input type="radio" name="type_billet" value="standard" checked>
+          <span><b>Standard</b><span>${esc(api.price(ev.price))} par place</span></span>
+        </label>
+        <label class="ticket-type ticket-type--vip${vipSoldOut ? " is-disabled" : ""}">
+          <input type="radio" name="type_billet" value="vip"${vipSoldOut ? " disabled" : ""}>
+          <span><b>VIP</b><span>${vipSoldOut ? "Complet" : `${esc(api.price(ev.priceVip))} par place${ev.remainingVip != null ? ` · ${ev.remainingVip} restante${ev.remainingVip > 1 ? "s" : ""}` : ""}`}</span></span>
+        </label>
+      </div>`);
+  }
+
   /* ---------- Nombre de places ---------- */
   const qtyInput = $("#places");
+  const qtyNote = () => {
+    const m = maxQty();
+    $("[data-qty-note]").textContent = m < 10
+      ? `Un seul billet pour tout le groupe. Il reste ${m} place${m > 1 ? "s" : ""}${type === "vip" ? " VIP" : ""}.`
+      : "Un seul billet pour tout le groupe, jusqu'à 10 places.";
+    qtyInput.max = m;
+  };
   const setQty = (n) => {
-    qty = Math.min(maxQty, Math.max(1, Math.trunc(Number(n)) || 1));
+    qty = Math.min(maxQty(), Math.max(1, Math.trunc(Number(n)) || 1));
     qtyInput.value = qty;
     refreshPayment();
   };
-  qtyInput.max = maxQty;
-  if (maxQty < 10) $("[data-qty-note]").textContent = `Un seul billet pour tout le groupe. Il reste ${maxQty} place${maxQty > 1 ? "s" : ""}.`;
+  qtyNote();
   qtyInput.addEventListener("change", () => setQty(qtyInput.value));
   form.addEventListener("click", (e) => {
     const b = e.target.closest("[data-qty]");
@@ -96,6 +125,17 @@ window.BJAApi.ready.then(() => {
   refreshPayment();
   form.hidden = false;
 
+  let reapplyPromo = () => null;
+  form.addEventListener("change", (e) => {
+    if (e.target.name !== "type_billet") return;
+    type = e.target.value;
+    price = base();
+    promoCode = "";
+    qtyNote();
+    setQty(qty);
+    reapplyPromo(); // le code promo est recalculé sur le prix du nouveau billet
+  });
+
   /* ---------- Code promo (vérifié par le serveur) ---------- */
   const promoBtn = $("[data-promo-apply]");
   if (promoBtn) {
@@ -104,12 +144,12 @@ window.BJAApi.ready.then(() => {
     const applyPromo = async () => {
       const code = promoInput.value.trim().toUpperCase();
       promoMsg.className = "promo-msg";
-      if (!code) { promoCode = ""; price = ev.price; promoMsg.textContent = ""; refreshPayment(); return; }
+      if (!code) { promoCode = ""; price = base(); promoMsg.textContent = ""; refreshPayment(); return; }
       if (!api.isReady()) { promoMsg.textContent = "Codes promo indisponibles en mode démonstration."; return; }
       promoBtn.disabled = true;
       promoMsg.textContent = "Vérification…";
       try {
-        const r = await api.rpc("verifier_code", { p_code: code, p_event_id: ev.id });
+        const r = await api.rpc("verifier_code", { p_code: code, p_event_id: ev.id, p_type: type });
         if (r.valide) {
           promoCode = r.code;
           price = Number(r.prix_final);
@@ -117,7 +157,7 @@ window.BJAApi.ready.then(() => {
           promoMsg.textContent = `Code ${r.code} appliqué (${r.message}).`;
         } else {
           promoCode = "";
-          price = ev.price;
+          price = base();
           promoMsg.classList.add("is-error");
           promoMsg.textContent = r.message;
         }
@@ -130,6 +170,7 @@ window.BJAApi.ready.then(() => {
       }
     };
     promoBtn.addEventListener("click", applyPromo);
+    reapplyPromo = () => (promoInput.value.trim() ? applyPromo() : null);
     promoInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyPromo(); } });
   }
 
@@ -204,13 +245,14 @@ window.BJAApi.ready.then(() => {
     "Bonjour BJA HOUSE,",
     result.liste_attente
       ? `je viens de m'inscrire sur la liste d'attente pour « ${ev.title} ».`
-      : `je viens de réserver ${seatsText} pour « ${ev.title} ».`,
+      : `je viens de réserver ${seatsText}${(result.type || type) === "vip" ? " VIP" : ""} pour « ${ev.title} ».`,
     "",
     `Référence : ${result.reference}`,
     `Événement : ${ev.title}, ${api.eventDate(ev)} (${ev.hours})`,
     `Lieu : ${ev.place}`,
     `Nom : ${data.prenom} ${data.nom}`,
     `Places : ${n}`,
+    ...((result.type || type) === "vip" ? ["Billet : VIP"] : []),
     `E-mail : ${data.email}`,
     `Téléphone : ${data.telephone}`,
     ...(result.liste_attente
@@ -261,9 +303,10 @@ window.BJAApi.ready.then(() => {
         result = await api.rpc("reserver", {
           p_event_id: ev.id, p_prenom: data.prenom, p_nom: data.nom, p_email: data.email, p_telephone: data.telephone,
           p_moyen_paiement: data.moyen, p_recu_path: recuPath, p_code: promoCode || null, p_places: qty,
+          ...(type === "vip" ? { p_type: "vip" } : {}),
         });
       } else {
-        result = { reference: api.reference(), ticket_token: null, liste_attente: full, montant: price * qty, places: qty };
+        result = { reference: api.reference(), ticket_token: null, liste_attente: full, montant: price * qty, places: qty, type };
         note = "Mode démonstration : la base de données n'est pas encore reliée, rien n'a été enregistré.";
       }
     } catch (err) {

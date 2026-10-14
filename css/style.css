@@ -1068,3 +1068,18 @@ p { margin: 0; }
 .scanner-count { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .scanner-count .btn { min-width: 48px; justify-content: center; }
 .scanner-result > .btn { justify-self: start; margin-top: 4px; }
+
+/* ---------- Billets VIP ---------- */
+.ticket-types { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ticket-types .field-label { grid-column: 1 / -1; font-weight: 600; font-size: var(--step--1); }
+.field .ticket-type { display: flex; gap: 10px; align-items: flex-start; padding: 14px; border: 1px solid var(--grey-300); border-radius: var(--radius); cursor: pointer; font-weight: 400; font-size: var(--step-0); transition: border-color .2s, background-color .2s; }
+.ticket-type:hover { border-color: var(--royal); }
+.field .ticket-type input { width: auto; margin-top: 4px; accent-color: var(--royal); flex: none; }
+.ticket-type > span { display: grid; gap: 2px; min-width: 0; }
+.ticket-type > span > span { font-size: var(--step--1); color: var(--grey-700); }
+.ticket-type:has(input:checked) { border-color: var(--royal); background: var(--royal-soft); }
+.ticket-type--vip b { color: var(--royal-deep); letter-spacing: .06em; }
+.ticket-type--vip b::after { content: "★"; margin-left: 6px; color: #c59a2e; }
+.ticket-type.is-disabled { opacity: .55; cursor: not-allowed; }
+.admin-badge--vip { background: #1b1f2e; color: #f1d27a; }
+.eticket-badges { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }

@@ -47,7 +47,7 @@
     show(`
       <div class="eticket-head">
         <img class="eticket-logo" src="assets/logo.png" alt="BJA HOUSE">
-        <span class="admin-badge admin-badge--${state[1]}">${state[0]}</span>
+        <span class="eticket-badges">${b.type === "vip" ? `<span class="admin-badge admin-badge--vip">VIP</span>` : ""}<span class="admin-badge admin-badge--${state[1]}">${state[0]}</span></span>
       </div>
       <h1 class="eticket-title">${esc(b.evenement)}</h1>
       <p class="eticket-when">${esc(when)}${b.horaires ? ` · ${esc(b.horaires)}` : ""}</p>
@@ -55,6 +55,7 @@
       <p class="eticket-state">${state[2]}</p>
       <dl class="eticket-facts">
         <div><dt>Nom</dt><dd>${esc(b.prenom)} ${esc(b.nom)}</dd></div>
+        ${b.type === "vip" ? `<div><dt>Billet</dt><dd>VIP</dd></div>` : ""}
         ${b.places > 1 ? `<div><dt>Places</dt><dd>${b.places} personnes</dd></div>` : ""}
         <div><dt>Référence</dt><dd class="ref">${esc(b.reference)}</dd></div>
         ${b.lieu ? `<div><dt>Lieu</dt><dd>${esc(b.lieu)}</dd></div>` : ""}

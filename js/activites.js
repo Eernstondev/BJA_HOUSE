@@ -38,6 +38,7 @@ window.BJAApi.ready.then(() => {
             <div><dt>Date</dt><dd>${esc(api.eventDate(ev))}, ${esc(ev.hours)}</dd></div>
             <div><dt>Lieu</dt><dd>${esc(ev.place)}</dd></div>
             <div><dt>Prix</dt><dd class="price">${esc(api.price(ev.price))}</dd></div>
+            ${ev.priceVip != null ? `<div><dt>VIP</dt><dd class="price">${ev.remainingVip === 0 ? "Complet" : esc(api.price(ev.priceVip))}</dd></div>` : ""}
             <div><dt>Paiement</dt><dd>${paid ? esc(payLabels) : "Aucun paiement demandé"}</dd></div>
           </dl>
         </div>

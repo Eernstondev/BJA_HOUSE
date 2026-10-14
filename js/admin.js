@@ -246,10 +246,11 @@
   const stars = (n) => `<span class="stars" aria-label="${n} sur 5">${"★".repeat(n)}<span class="stars-off">${"★".repeat(5 - n)}</span></span>`;
   const eventTitle = (id) => data.evenements.find((e) => e.id === id)?.titre
     || data.reservations.find((r) => r.event_id === id)?.event_title || id;
-  const confirmMsg = (r) => `Bonjour ${r.prenom}, votre paiement est vérifié : votre réservation ${r.reference} pour « ${r.event_title} » est confirmée. Voici votre billet avec QR code, à présenter à l'entrée : ${ticketUrl(r)}${seatsOf(r) > 1 ? ` Ce billet est valable pour ${seatsOf(r)} personnes : partagez ce lien avec votre groupe, chacun peut entrer à son heure avec le même QR code.` : ""} À bientôt ! BJA HOUSE`;
+  const confirmMsg = (r) => `Bonjour ${r.prenom}, votre paiement est vérifié : votre réservation${isVip(r) ? " VIP" : ""} ${r.reference} pour « ${r.event_title} » est confirmée. Voici votre billet avec QR code, à présenter à l'entrée : ${ticketUrl(r)}${seatsOf(r) > 1 ? ` Ce billet est valable pour ${seatsOf(r)} personnes : partagez ce lien avec votre groupe, chacun peut entrer à son heure avec le même QR code.` : ""} À bientôt ! BJA HOUSE`;
   const refuseMsg = (r) => `Bonjour ${r.prenom}, nous n'avons pas pu valider le paiement de votre réservation ${r.reference} pour « ${r.event_title} ». Répondez à ce message pour régulariser. BJA HOUSE`;
   const seatsOf = (r) => Number(r.places) || 1;
   const sumSeats = (list) => list.reduce((n, r) => n + seatsOf(r), 0);
+  const isVip = (r) => r.type_billet === "vip";
   const enteredOf = (r) => (r.entrees != null ? Number(r.entrees) : r.scanned_at ? seatsOf(r) : 0);
   const entryCount = (r) => (seatsOf(r) > 1 ? `${enteredOf(r)}/${seatsOf(r)} entrés` : "");
   const ticketUrl = (r) => new URL(`billet.html?t=${r.ticket_token}`, location.href).href;
@@ -322,7 +323,7 @@
   const cards = {
     reservations: (r) => `
       <article class="admin-card" data-id="${esc(r.id)}">
-        <div class="admin-card-head"><span class="admin-ref">${esc(r.reference)}</span>${r.liste_attente ? tag("Liste d'attente", "wait") : badge(r.statut)}${r.scanned_at ? tag(enteredOf(r) < seatsOf(r) ? entryCount(r) : seatsOf(r) > 1 ? "Groupe entré" : "Entré", "ok") : ""}<time>${when(r.created_at)}</time></div>
+        <div class="admin-card-head"><span class="admin-ref">${esc(r.reference)}</span>${isVip(r) ? tag("VIP", "vip") : ""}${r.liste_attente ? tag("Liste d'attente", "wait") : badge(r.statut)}${r.scanned_at ? tag(enteredOf(r) < seatsOf(r) ? entryCount(r) : seatsOf(r) > 1 ? "Groupe entré" : "Entré", "ok") : ""}<time>${when(r.created_at)}</time></div>
         <h3>${esc(r.event_title)}</h3>
         <dl class="admin-facts">
           <div><dt>Client</dt><dd>${esc(r.prenom)} ${esc(r.nom)}${seatsOf(r) > 1 ? ` · <b>${seatsOf(r)} places</b>` : ""}</dd></div>
@@ -348,6 +349,7 @@
       const wait = sumSeats(resa.filter((r) => r.statut === "en_attente" && !r.liste_attente));
       const queue = sumSeats(resa.filter((r) => r.liste_attente));
       const taken = sumSeats(resa.filter((r) => !r.liste_attente && r.statut !== "refusee"));
+      const takenVip = sumSeats(resa.filter((r) => isVip(r) && !r.liste_attente && r.statut !== "refusee"));
       return `
       <article class="admin-card" data-id="${esc(e.id)}">
         ${e.image_path ? `<img class="admin-cover" src="${esc(siteImage(e.image_path))}" alt="" loading="lazy">` : ""}
@@ -359,9 +361,9 @@
         <dl class="admin-facts">
           <div><dt>Date</dt><dd>${esc(eventWhen(e))}${e.horaires ? ` · ${esc(e.horaires)}` : ""}</dd></div>
           <div><dt>Lieu</dt><dd>${esc(e.lieu || "—")}</dd></div>
-          <div><dt>Prix</dt><dd>${esc(api.price(Number(e.prix)))}</dd></div>
+          <div><dt>Prix</dt><dd>${esc(api.price(Number(e.prix)))}${e.prix_vip != null ? ` · VIP ${esc(api.price(Number(e.prix_vip)))}` : ""}</dd></div>
           <div><dt>Inscrits</dt><dd>${ok} confirmé${ok > 1 ? "s" : ""}${wait ? `, ${wait} à vérifier` : ""}${queue ? `, ${queue} en liste d'attente` : ""}</dd></div>
-          <div><dt>Places</dt><dd>${e.places ? `${Math.min(taken, e.places)} / ${e.places} prises${taken >= e.places ? " · complet" : ""}` : "Illimitées"}</dd></div>
+          <div><dt>Places</dt><dd>${e.places ? `${Math.min(taken, e.places)} / ${e.places} prises${taken >= e.places ? " · complet" : ""}` : "Illimitées"}${e.prix_vip != null ? ` · VIP ${takenVip}${e.places_vip ? ` / ${e.places_vip}` : ""}` : ""}</dd></div>
         </dl>
         <div class="admin-actions">
           ${btn("event-edit", "Modifier", "primary")}
@@ -708,6 +710,7 @@
       ["Statut", (r) => (r.liste_attente ? "Liste d'attente" : STATUS[r.statut][0])],
       ["Entrée", (r) => (r.scanned_at ? new Date(r.scanned_at).toLocaleString("fr-FR") : "")],
       ["Entrés", (r) => enteredOf(r)],
+      ["Billet", (r) => (isVip(r) ? "VIP" : "Standard")],
     ]);
   }
 
@@ -820,6 +823,12 @@
         <div class="field"><label for="ed-places">Nombre de places</label><input id="ed-places" name="places" type="number" min="1" step="1" inputmode="numeric" placeholder="Illimité" value="${v("places")}">
           <span class="admin-hint">Vide = illimité. Une fois complet, les inscriptions passent en liste d'attente.</span></div>
       </div>
+      <div class="form-row">
+        <div class="field"><label for="ed-prix-vip">Prix VIP (${esc(cfg.currency)})</label><input id="ed-prix-vip" name="prix_vip" type="number" min="0" step="1" inputmode="numeric" placeholder="Pas de VIP" value="${v("prix_vip")}">
+          <span class="admin-hint">Vide = pas de billets VIP.</span></div>
+        <div class="field"><label for="ed-places-vip">Places VIP</label><input id="ed-places-vip" name="places_vip" type="number" min="1" step="1" inputmode="numeric" placeholder="Sans limite" value="${v("places_vip")}">
+          <span class="admin-hint">Comprises dans le nombre de places. Vide = sans limite.</span></div>
+      </div>
       <div class="field"><label for="ed-description">Description</label><textarea id="ed-description" name="description" maxlength="1200">${v("description")}</textarea></div>
       ${fileField("image", "Image de l'événement (facultatif)", ev?.image_path ? siteImage(ev.image_path) : "")}
       <label class="consent"><input type="checkbox" name="publie"${!ev || ev.publie ? " checked" : ""}> Visible sur le site</label>`,
@@ -831,10 +840,15 @@
           horaires: f.horaires.value.trim(), lieu: f.lieu.value.trim(), prix: Math.max(0, Number(f.prix.value) || 0),
           description: f.description.value.trim(), publie: f.publie.checked,
           places: f.places.value ? Math.trunc(Number(f.places.value)) : null,
+          prix_vip: f.prix_vip.value === "" ? null : Math.max(0, Number(f.prix_vip.value) || 0),
+          places_vip: f.places_vip.value ? Math.trunc(Number(f.places_vip.value)) : null,
         };
         if (row.titre.length < 2) return "Indiquez un titre.";
         if (row.places !== null && !(row.places >= 1)) return "Le nombre de places doit être d'au moins 1 (ou vide pour illimité).";
         if (!row.debut) return "Indiquez la date et l'heure.";
+        if (row.places_vip !== null && !(row.places_vip >= 1)) return "Le nombre de places VIP doit être d'au moins 1 (ou vide).";
+        if (row.places_vip !== null && row.prix_vip === null) return "Indiquez le prix VIP, ou videz les places VIP.";
+        if (row.places_vip !== null && row.places !== null && row.places_vip > row.places) return "Les places VIP ne peuvent pas dépasser le nombre total de places.";
         const file = f.image.files[0];
         const oldImage = ev?.image_path;
         if (file) row.image_path = await uploadSiteImage(file, "evenements");
@@ -1126,7 +1140,7 @@
     scanResult("idle", "Vérification…", "");
     try {
       const r = await db.rpc("valider_entree", nombre ? { p_code: code, p_nombre: nombre } : { p_code: code });
-      const who = r.nom ? `${r.nom} · ${r.reference}` : "";
+      const who = r.nom ? `${r.type === "vip" ? "★ VIP · " : ""}${r.nom} · ${r.reference}` : "";
       const group = r.places > 1;
       const resa = data.reservations.find((x) => x.reference === r.reference);
       if (r.resultat === "ok") {
@@ -1232,7 +1246,7 @@
           <li>
             <label class="entry">
               <input type="checkbox" data-entry value="${esc(r.id)}" checked>
-              <span class="entry-name"><b>${esc(r.prenom)} ${esc(r.nom)}${seatsOf(r) > 1 ? ` (${remind ? `${seatsOf(r)} places` : entryCount(r)})` : ""}</b><small>${esc(r.telephone)} · ${esc(r.reference)}</small></span>
+              <span class="entry-name"><b>${isVip(r) ? "★ VIP · " : ""}${esc(r.prenom)} ${esc(r.nom)}${seatsOf(r) > 1 ? ` (${remind ? `${seatsOf(r)} places` : entryCount(r)})` : ""}</b><small>${esc(r.telephone)} · ${esc(r.reference)}</small></span>
               ${remind ? "<span></span>" : `<time>${new Date(r.scanned_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>`}
               ${q.sent.has(r.id) ? tag(q.done, "ok") : ""}
             </label>

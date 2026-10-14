@@ -1,5 +1,6 @@
-/* BJA HOUSE — réglages du site. C'est le seul fichier à modifier pour changer
-   les événements, les prix, les moyens de paiement et les accès à la base de données. */
+/* BJA HOUSE — réglages du site. Une fois Supabase installé, les événements, les membres,
+   les coordonnées et les numéros de paiement se gèrent depuis l'espace admin (admin.html) ;
+   les valeurs ci-dessous ne servent alors que de secours si la base ne répond pas. */
 window.BJA = {
   // Supabase (Settings → API). Uniquement l'URL du projet et la clé publique « anon » :
   // ne jamais mettre la clé « service_role » ici.
@@ -10,6 +11,9 @@ window.BJA = {
   whatsapp: "",
 
   currency: "HTG",
+
+  // Coordonnées affichées (remplacées par celles de l'espace admin → Réglages).
+  contact: { email: "contact@bjahouse.fr", instagram: "https://www.instagram.com/", tiktok: "https://www.tiktok.com/" },
 
   // Moyens de paiement proposés à la réservation, avec les instructions affichées.
   paymentMethods: [

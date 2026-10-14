@@ -31,4 +31,12 @@ Page non listée dans le menu, réservée aux comptes admin.
 3. Dans SQL Editor : `insert into public.admins (user_id) select id from auth.users where email = 'votre@email.com';`
 4. Conseillé : Authentication → Sign In / Providers → désactiver « Allow new users to sign up ».
 
-L'admin y confirme ou refuse les réservations (avec le reçu), publie ou refuse les photos, et lit les messages de contact.
+Depuis le tableau de bord, l'admin gère tout le site :
+- **Réservations** : voir le reçu, confirmer, refuser, prévenir le client sur WhatsApp, filtrer par événement, exporter pour Excel, supprimer.
+- **Événements** : créer, modifier (date, prix, lieu, image), masquer ou supprimer ; voir les inscrits.
+- **Photos** : publier ou refuser les photos envoyées, ajouter directement des photos à la galerie, supprimer.
+- **Membres** : ajouter, modifier (photo, rôle, présentation, ordre), masquer ou supprimer.
+- **Messages** : lire, répondre sur WhatsApp, marquer comme traité, supprimer.
+- **Réglages** : numéro WhatsApp, e-mail, Instagram, TikTok, numéros et noms MonCash/NatCash.
+
+Le site lit ces données dans Supabase ; `js/config.js` ne sert que de secours si la base ne répond pas.

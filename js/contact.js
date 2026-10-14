@@ -1,5 +1,5 @@
 /* BJA HOUSE — page contact : lien WhatsApp, formulaire enregistré dans Supabase puis envoyé sur WhatsApp */
-(() => {
+window.BJAApi.ready.then(() => {
   "use strict";
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -99,4 +99,4 @@
       say(`Merci ${prenom}, votre message est bien arrivé. On vous recontacte au ${data.telephone}.`);
     }
   });
-})();
+});

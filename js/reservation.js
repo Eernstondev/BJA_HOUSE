@@ -1,5 +1,5 @@
 /* BJA HOUSE — page de réservation : formulaire, reçu, base de données, message WhatsApp */
-(() => {
+window.BJAApi.ready.then(() => {
   "use strict";
   const $ = (sel, root = document) => root.querySelector(sel);
   const api = window.BJAApi;
@@ -192,4 +192,4 @@
     done.focus();
     if (link) location.href = link;
   });
-})();
+});

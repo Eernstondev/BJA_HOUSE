@@ -51,21 +51,19 @@
   <div class="wrap">
     <div class="admin-stats" data-stats></div>
 
-    <div class="admin-tabs" role="tablist" aria-label="Rubriques">
-      <button role="tab" type="button" data-tab="reservations" aria-selected="true">Réservations <span class="count" data-count="reservations"></span></button>
-      <button role="tab" type="button" data-tab="photos" aria-selected="false">Photos <span class="count" data-count="photos"></span></button>
-      <button role="tab" type="button" data-tab="messages" aria-selected="false">Messages <span class="count" data-count="messages"></span></button>
-    </div>
+    <div class="admin-tabs" role="tablist" aria-label="Rubriques" data-tabs></div>
 
     <div class="admin-toolbar">
-      <div class="chips" data-filters></div>
-      <button class="btn btn--outline btn--sm" type="button" data-refresh>Actualiser</button>
+      <div class="admin-filters" data-filters></div>
+      <div class="admin-tools"><span data-tools></span><button class="btn btn--outline btn--sm" type="button" data-refresh>Actualiser</button></div>
     </div>
 
     <p class="form-status" data-app-status role="status" hidden></p>
     <div class="admin-list" data-list aria-live="polite"></div>
   </div>
 </section>
+
+<dialog class="admin-editor" data-editor aria-labelledby="editor-title"></dialog>
 
 <dialog class="admin-receipt" data-receipt>
   <div class="admin-receipt-head">

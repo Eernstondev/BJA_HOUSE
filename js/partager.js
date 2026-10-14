@@ -1,5 +1,5 @@
 /* BJA HOUSE — partage de photos : 3 photos max, catégorie, validation, base de données, WhatsApp */
-(() => {
+window.BJAApi.ready.then(() => {
   "use strict";
   const $ = (sel, root = document) => root.querySelector(sel);
   const api = window.BJAApi;
@@ -149,4 +149,4 @@
     done.focus();
     if (link) location.href = link;
   });
-})();
+});

@@ -30,7 +30,7 @@
   </div>
 </header>
 <main>
-<section class="hero" data-hero="assets/hero.jpg">
+<section class="hero hero--animated" data-hero="assets/hero.jpg">
   <div class="wrap">
     <div class="hero-copy">
       <p class="eyebrow">Groupe de jeunes · Organisation d'événements</p>
@@ -41,19 +41,20 @@
         <a class="btn btn--ghost" href="contact.html">Nous rejoindre</a>
       </div>
     </div>
-    <article class="ticket" aria-label="Prochain événement">
-      <div class="ticket-date"><span class="ticket-day">25</span><span class="ticket-month">Oct</span></div>
+    <a class="ticket ticket--link" href="activites.html" aria-label="Prochain événement" data-next-event>
+      <div class="ticket-date"><span class="ticket-day" data-ne-day>25</span><span class="ticket-month" data-ne-month>Oct</span></div>
       <div class="ticket-body">
         <span class="ticket-label">Prochain événement</span>
-        <h3>Soirée d'automne BJA</h3>
-        <div class="ticket-meta"><span>19h00 – 23h30</span><span>Lieu communiqué aux inscrits</span></div>
+        <h3 data-ne-title>Soirée d'automne BJA</h3>
+        <div class="ticket-meta"><span data-ne-hours>19h00 – 23h30</span><span data-ne-price></span></div>
         <div class="countdown" data-countdown="2026-10-25T19:00" aria-live="polite">
           <div><b data-d>–</b><span>jours</span></div>
           <div><b data-h>–</b><span>heures</span></div>
           <div><b data-m>–</b><span>min</span></div>
+          <div><b data-s>–</b><span>sec</span></div>
         </div>
       </div>
-    </article>
+    </a>
   </div>
   <p class="hero-note" hidden>Photo d'en-tête à placer : assets/hero.jpg</p>
 </section>
@@ -65,6 +66,13 @@
     <div class="strip-item"><b>Ateliers &amp; projets</b><span>Apprendre, créer et porter ses propres idées.</span></div>
   </div>
 </section>
+
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span>Soirées</span><span>Sport</span><span>Sorties</span><span>Ateliers</span><span>Rencontres</span><span>Projets</span>
+    <span>Soirées</span><span>Sport</span><span>Sorties</span><span>Ateliers</span><span>Rencontres</span><span>Projets</span>
+  </div>
+</div>
 
 <section class="section">
   <div class="wrap intro">
@@ -220,10 +228,12 @@
     </div>
     <div class="footer-bottom">
       <span>© <span data-year>2026</span> BJA HOUSE. Tous droits réservés.</span>
-      <span>Fait avec soin par l'équipe BJA</span>
+      <span>Site réalisé par <b class="credit">URBVEC ATELIER</b></span>
     </div>
   </div>
 </footer>
+<script src="js/config.js" defer></script>
+<script src="js/api.js" defer></script>
 <script src="js/main.js" defer></script>
 </body>
 </html>

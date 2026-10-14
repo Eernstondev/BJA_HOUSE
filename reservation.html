@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Réservation · BJA HOUSE</title>
+<meta name="description" content="Réserver sa place à un événement BJA HOUSE.">
+<meta name="theme-color" content="#11286e">
+<link rel="icon" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Public+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="BJA HOUSE, accueil">
+      <img class="brand-logo" src="assets/logo.png" alt="BJA HOUSE">
+      <span class="brand-text"><span class="brand-mark">BJA</span><span class="brand-name">HOUSE</span></span>
+    </a>
+    <button class="nav-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav"><span></span><span></span><span></span></button>
+    <nav class="nav" id="nav" aria-label="Navigation principale">
+      <a href="index.html">Accueil</a>
+      <a href="galerie.html">Galerie</a>
+      <a href="activites.html" aria-current="page">Activités</a>
+      <a href="a-propos.html">À propos</a>
+      <a class="nav-cta" href="contact.html">Contact</a>
+    </nav>
+  </div>
+</header>
+<main>
+<section class="page-hero page-hero--compact">
+  <div class="wrap">
+    <p class="eyebrow"><a class="back-link" href="activites.html">← Activités</a></p>
+    <h1>Réserver ma place</h1>
+    <p>Remplissez le formulaire, payez, puis envoyez la photo de votre reçu sur WhatsApp pour finaliser.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap booking">
+    <aside class="booking-summary" data-event-summary>
+      <p class="events-empty">Chargement de l'événement…</p>
+    </aside>
+
+    <div class="booking-main">
+      <form class="form" id="reservation-form" novalidate hidden>
+        <fieldset class="form-block">
+          <legend>Vos informations</legend>
+          <div class="form-row">
+            <div class="field">
+              <label for="prenom">Prénom</label>
+              <input id="prenom" name="prenom" type="text" autocomplete="given-name" maxlength="80" required>
+              <span class="field-error" id="prenom-error"></span>
+            </div>
+            <div class="field">
+              <label for="nom">Nom</label>
+              <input id="nom" name="nom" type="text" autocomplete="family-name" maxlength="80" required>
+              <span class="field-error" id="nom-error"></span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="email">E-mail</label>
+              <input id="email" name="email" type="email" autocomplete="email" maxlength="160" required>
+              <span class="field-error" id="email-error"></span>
+            </div>
+            <div class="field">
+              <label for="telephone">Téléphone (WhatsApp)</label>
+              <input id="telephone" name="telephone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" placeholder="+33 6 12 34 56 78" required>
+              <span class="field-error" id="telephone-error"></span>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="form-block" data-payment-block>
+          <legend>Paiement</legend>
+          <div class="pay-options" data-payment-options></div>
+          <span class="field-error" id="paiement-error"></span>
+          <div class="field">
+            <label for="recu">Photo du reçu de paiement</label>
+            <label class="dropzone" for="recu" data-dropzone>
+              <input id="recu" name="recu" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif">
+              <span class="dropzone-text"><b>Choisir une photo</b> ou la glisser ici<br><small>JPG, PNG ou WEBP, 5 Mo maximum</small></span>
+              <img class="dropzone-preview" alt="Aperçu du reçu" hidden>
+            </label>
+            <span class="field-error" id="recu-error"></span>
+          </div>
+        </fieldset>
+
+        <p class="form-status" role="status" hidden></p>
+        <button class="btn btn--primary btn--block" type="submit">Réserver ma place <span class="arrow" aria-hidden="true">→</span></button>
+        <p class="form-note">En réservant, vous serez redirigé vers WhatsApp avec un message pré-rempli pour BJA HOUSE.</p>
+      </form>
+
+      <div class="done-panel" data-done hidden tabindex="-1">
+        <p class="eyebrow">Réservation enregistrée</p>
+        <h2>Dernière étape : envoyez votre reçu</h2>
+        <p>Votre référence : <b class="ref" data-ref></b></p>
+        <p data-done-text>WhatsApp s'ouvre avec un message pré-rempli. <b>Ajoutez la photo de votre reçu de paiement</b> avant d'envoyer : votre place sera confirmée après vérification.</p>
+        <a class="btn btn--primary" data-wa-link target="_blank" rel="noopener">Ouvrir WhatsApp <span class="arrow" aria-hidden="true">→</span></a>
+        <p class="form-note" data-done-note></p>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <a class="brand brand--footer" href="index.html" aria-label="BJA HOUSE, accueil"><img class="brand-logo" src="assets/logo.png" alt="BJA HOUSE"><span class="brand-text"><span class="brand-mark">BJA</span><span class="brand-name">HOUSE</span></span></a>
+        <p>Un groupe de jeunes qui organise des soirées, des sorties, du sport et des ateliers. Ouvert à toutes celles et ceux qui veulent s'impliquer.</p>
+      </div>
+      <div>
+        <p class="footer-title">Pages</p>
+        <ul class="footer-links">
+          <li><a href="index.html">Accueil</a></li>
+          <li><a href="galerie.html">Galerie</a></li>
+          <li><a href="activites.html">Activités</a></li>
+          <li><a href="a-propos.html">À propos</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="footer-title">Suivre BJA HOUSE</p>
+        <ul class="footer-links">
+          <li><a href="https://www.instagram.com/" target="_blank" rel="noopener">Instagram</a></li>
+          <li><a href="https://www.tiktok.com/" target="_blank" rel="noopener">TikTok</a></li>
+          <li><a href="contact.html">contact@bjahouse.fr</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span data-year>2026</span> BJA HOUSE. Tous droits réservés.</span>
+      <span>Site réalisé par <b class="credit">URBVEC ATELIER</b></span>
+    </div>
+  </div>
+</footer>
+<script src="js/config.js" defer></script>
+<script src="js/api.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/reservation.js" defer></script>
+</body>
+</html>

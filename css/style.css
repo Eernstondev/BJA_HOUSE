@@ -1096,3 +1096,5 @@ p { margin: 0; }
 .eticket-cancel-row .btn { color: #b42318; border-color: #b42318; }
 .eticket-cancel-row .btn:hover { background: #b42318; color: var(--white); }
 .admin-alert { margin: 0; padding: 10px 12px; border-radius: var(--radius); background: #fff4d6; color: #8a5a00; font-size: var(--step--1); font-weight: 600; }
+
+.field-hint { font-size: var(--step--1); color: var(--grey-500); }

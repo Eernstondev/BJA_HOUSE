@@ -259,6 +259,10 @@
   const enteredOf = (r) => (r.entrees != null ? Number(r.entrees) : r.scanned_at ? seatsOf(r) : 0);
   const entryCount = (r) => (seatsOf(r) > 1 ? `${enteredOf(r)}/${seatsOf(r)} entrés` : "");
   const ticketUrl = (r) => new URL(`billet.html?t=${r.ticket_token}`, location.href).href;
+  // Photos envoyées par les visiteurs : un même envoi (lot) contient jusqu'à 3 photos.
+  const lotOf = (r) => data.photos.filter((p) => p.lot === r.lot);
+  const lotCount = (r, statut) => lotOf(r).filter((p) => p.statut === statut).length;
+  const photoMsg = (r, n) => `Bonjour ${r.auteur.split(" ")[0]}, ${n > 1 ? `vos ${n} photos sont` : "votre photo est"} maintenant en ligne dans la galerie BJA HOUSE : ${new URL("galerie.html", location.href).href} Merci pour le partage ! BJA HOUSE`;
   const waBtn = (href, label) =>
     href ? `<a class="btn btn--outline btn--sm" href="${esc(href)}" target="_blank" rel="noopener">${label}</a>` : "";
 
@@ -396,6 +400,8 @@
         <p class="admin-meta"><b>${esc(r.auteur)}</b> · ${esc(cfg.categories[r.categorie] || r.categorie)}${r.evenement ? ` · ${esc(r.evenement)}` : ""}</p>
         <div class="admin-actions">
           ${r.statut !== "approuvee" ? btn("set", "Publier", "primary", ' data-value="approuvee"') : ""}
+          ${r.statut === "en_attente" && lotCount(r, "en_attente") > 1 ? btn("publish-lot", `Publier l'envoi (${lotCount(r, "en_attente")})`, "primary") : ""}
+          ${r.statut === "approuvee" ? waBtn(clientWa(r.telephone, photoMsg(r, lotCount(r, "approuvee"))), "Prévenir sur WhatsApp") : ""}
           ${r.statut !== "refusee" ? btn("set", r.statut === "approuvee" ? "Retirer" : "Refuser", "danger", ' data-value="refusee"') : ""}
           ${btn("delete", "Supprimer", "ghost-danger")}
         </div>
@@ -641,9 +647,13 @@
     if (action === "copy-code") return copy(item.code, "code");
 
     // Confirmer ou refuser une réservation ouvre aussitôt WhatsApp vers le client.
+    // Publier la dernière photo en attente d'un envoi prévient son auteur (un seul message par envoi).
     // La fenêtre est ouverte pendant le clic, sinon le navigateur la bloque.
+    const publishing = tab === "photos" && (action === "publish-lot" || (action === "set" && b.dataset.value === "approuvee"));
+    const lotDone = publishing && (action === "publish-lot" || lotCount(item, "en_attente") <= (item.statut === "en_attente" ? 1 : 0));
     const waTo = action === "set" && tab === "reservations"
-      ? clientWa(item.telephone, b.dataset.value === "confirmee" ? confirmMsg(item) : refuseMsg(item)) : null;
+      ? clientWa(item.telephone, b.dataset.value === "confirmee" ? confirmMsg(item) : refuseMsg(item))
+      : lotDone ? clientWa(item.telephone, photoMsg(item, lotCount(item, "approuvee") + lotCount(item, "en_attente") + (item.statut === "refusee" ? 1 : 0))) : null;
     const win = waTo ? window.open("", "_blank") : null;
 
     b.disabled = true;
@@ -653,6 +663,11 @@
         if (win) win.location.href = waTo;
         else if (waTo) say(`Statut enregistré. WhatsApp n'a pas pu s'ouvrir : utilisez le bouton « ${b.dataset.value === "confirmee" ? "Renvoyer le billet" : "Prévenir"} sur WhatsApp ».`);
         else if (tab === "reservations") say("Statut enregistré. Numéro de téléphone invalide : prévenez la personne autrement.", true);
+      }
+      else if (action === "publish-lot") {
+        for (const p of lotOf(item).filter((x) => x.statut === "en_attente")) await updateItem(p, { statut: "approuvee" });
+        if (win) win.location.href = waTo;
+        else if (waTo) say("Photos publiées. WhatsApp n'a pas pu s'ouvrir : utilisez le bouton « Prévenir sur WhatsApp ».");
       }
       else if (action === "toggle-traite") await updateItem(item, { traite: !item.traite });
       else if (action === "toggle-publie") await updateItem(item, { publie: !item.publie });

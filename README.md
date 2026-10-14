@@ -25,6 +25,8 @@ Sans Supabase configuré, les formulaires fonctionnent en mode démonstration : 
   passer `statut` à `confirmee`.
 - **Photos partagées** : table `photos`, fichiers dans le bucket `galerie`. Elles n'apparaissent sur le site
   qu'une fois `statut` passé à `approuvee` (les requêtes sont en bas de `supabase/schema.sql`).
+  Dans l'admin, « Publier l'envoi » publie toutes les photos d'un même envoi et ouvre WhatsApp vers l'auteur
+  (s'il a laissé son numéro) avec le lien de la galerie : un seul message par envoi.
 
 ## Espace admin (`admin.html`)
 

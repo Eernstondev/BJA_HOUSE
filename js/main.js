@@ -68,7 +68,7 @@
       const esc = api.esc;
       $$(".members").forEach((box) => {
         box.innerHTML = cfg.members.map((m) => `
-          <button class="member-card" type="button" data-name="${esc(m.name)}" data-role="${esc(m.role)}" data-bio="${esc(m.bio)}" data-photo="${esc(m.photo || "")}">
+          <button class="member-card" type="button" data-name="${esc(m.name)}" data-role="${esc(m.role)}" data-bio="${esc(m.bio)}" data-photo="${esc(m.photo || "")}" data-links="${esc(JSON.stringify(m.links || []))}">
             <span class="photo member-photo${m.photo ? "" : " is-empty"}">${m.photo ? `<img src="${esc(m.photo)}" alt="" loading="lazy">` : ""}<span class="photo-label member-initial" aria-hidden="true">${esc(m.role.charAt(0))}</span></span>
             <span class="member-info"><b>${esc(m.name)}</b><span>${esc(m.role)}</span></span>
             <span class="member-more" aria-hidden="true">Voir le profil →</span>
@@ -278,6 +278,7 @@
   const photoBox = dialog.querySelector(".md-photo");
   const img = photoBox.querySelector("img");
   const initial = photoBox.querySelector(".member-initial");
+  const socials = dialog.querySelector(".md-socials");
 
   document.addEventListener("click", (e) => {
     const card = e.target.closest(".member-card");
@@ -290,6 +291,12 @@
     const hasPhoto = !card.querySelector(".photo").classList.contains("is-empty");
     photoBox.classList.toggle("is-empty", !hasPhoto);
     if (hasPhoto) { img.src = photo; img.alt = `${name}, ${role}`; } else { img.removeAttribute("src"); }
+    let links = [];
+    try { links = JSON.parse(card.dataset.links || "[]"); } catch { /* aucun lien */ }
+    const LABELS = { instagram: "Instagram", tiktok: "TikTok", facebook: "Facebook", linkedin: "LinkedIn" };
+    socials.hidden = !links.length;
+    socials.innerHTML = links.filter(([k, url]) => LABELS[k] && /^https:\/\//.test(url))
+      .map(([k, url]) => `<a class="md-social" href="${window.BJAApi.esc(url)}" target="_blank" rel="noopener">${LABELS[k]}</a>`).join("");
     dialog.showModal();
   });
   dialog.querySelector(".md-close").addEventListener("click", () => dialog.close());

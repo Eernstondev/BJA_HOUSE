@@ -172,7 +172,11 @@ window.BJAApi.ready.then(() => {
   /* ---------- Message WhatsApp ---------- */
   const buildMessage = (data, result) => [
     ...(!result.liste_attente && result.montant > 0
-      ? ["*IMPORTANT : joignez la photo de votre reçu de paiement à ce message avant de l'envoyer. Sans le reçu, la réservation ne peut pas être vérifiée.*", ""]
+      ? [
+          "*IMPORTANT : joignez la photo de votre reçu de paiement à ce message avant de l'envoyer. Sans le reçu, la réservation ne peut pas être vérifiée.*",
+          "*Une fois votre paiement vérifié, l'équipe vous envoie votre billet avec un QR code ici sur WhatsApp. Il sera scanné à l'entrée : ce QR code est unique et vous donne accès à l'espace. Gardez-le précieusement ou mémorisez votre référence.*",
+          "",
+        ]
       : []),
     "Bonjour BJA HOUSE,",
     result.liste_attente
@@ -191,8 +195,6 @@ window.BJAApi.ready.then(() => {
         ? [
             `Montant : ${api.price(result.montant)}${promoCode ? ` (code ${promoCode})` : ""}`,
             `Moyen de paiement : ${data.moyen}`,
-            "",
-            "Une fois mon paiement vérifié, l'équipe m'envoie mon billet avec QR code ici sur WhatsApp.",
           ]
         : ["", "Réservation gratuite : merci de me confirmer ma place et de m'envoyer mon billet."]),
   ].join("\n");

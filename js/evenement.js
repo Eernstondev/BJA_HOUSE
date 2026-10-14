@@ -84,7 +84,7 @@ window.BJAApi.ready.then(() => {
     btn.disabled = true;
     say("Envoi…", false);
     try {
-      await api.rpc("laisser_avis", { p_code: code, p_note: note, p_commentaire: form.elements.commentaire.value.trim() });
+      await api.rpc("laisser_avis", { p_code: code, p_note: note, p_commentaire: form.elements.commentaire.value.trim(), p_event_id: ev.id });
       reviews = await api.select("avis", query).catch(() => reviews);
       renderReviews();
       form.reset();

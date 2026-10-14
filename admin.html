@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Espace admin · BJA HOUSE</title>
+<meta name="description" content="Espace réservé à l'équipe BJA HOUSE.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#11286e">
+<link rel="icon" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Public+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="admin-bar">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="BJA HOUSE, retour au site">
+      <img class="brand-logo" src="assets/logo.png" alt="BJA HOUSE">
+    </a>
+    <span class="admin-bar-title">Espace admin</span>
+    <div class="admin-bar-user" data-session hidden>
+      <span data-user-email></span>
+      <button class="btn btn--ghost btn--sm" type="button" data-logout>Déconnexion</button>
+    </div>
+  </div>
+</header>
+<main class="admin">
+
+<section class="admin-login" data-login hidden>
+  <form class="form" id="login-form" novalidate>
+    <div>
+      <p class="eyebrow">Équipe BJA HOUSE</p>
+      <h1>Connexion</h1>
+    </div>
+    <div class="field">
+      <label for="login-email">E-mail</label>
+      <input id="login-email" name="email" type="email" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="login-password">Mot de passe</label>
+      <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <p class="form-status" role="status" hidden></p>
+    <button class="btn btn--primary btn--block" type="submit">Se connecter <span class="arrow" aria-hidden="true">→</span></button>
+  </form>
+</section>
+
+<section class="admin-app" data-app hidden>
+  <div class="wrap">
+    <div class="admin-stats" data-stats></div>
+
+    <div class="admin-tabs" role="tablist" aria-label="Rubriques">
+      <button role="tab" type="button" data-tab="reservations" aria-selected="true">Réservations <span class="count" data-count="reservations"></span></button>
+      <button role="tab" type="button" data-tab="photos" aria-selected="false">Photos <span class="count" data-count="photos"></span></button>
+      <button role="tab" type="button" data-tab="messages" aria-selected="false">Messages <span class="count" data-count="messages"></span></button>
+    </div>
+
+    <div class="admin-toolbar">
+      <div class="chips" data-filters></div>
+      <button class="btn btn--outline btn--sm" type="button" data-refresh>Actualiser</button>
+    </div>
+
+    <p class="form-status" data-app-status role="status" hidden></p>
+    <div class="admin-list" data-list aria-live="polite"></div>
+  </div>
+</section>
+
+<dialog class="admin-receipt" data-receipt>
+  <div class="admin-receipt-head">
+    <b data-receipt-title>Reçu</b>
+    <button class="btn btn--outline btn--sm" type="button" data-receipt-close>Fermer</button>
+  </div>
+  <div class="admin-receipt-body" data-receipt-body></div>
+</dialog>
+
+</main>
+<script src="js/config.js" defer></script>
+<script src="js/api.js" defer></script>
+<script src="js/admin.js" defer></script>
+</body>
+</html>

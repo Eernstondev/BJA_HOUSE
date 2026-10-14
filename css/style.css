@@ -1061,3 +1061,10 @@ p { margin: 0; }
 .not-found { min-height: 62vh; display: grid; align-items: center; }
 .not-found p:not(.eyebrow) { max-width: 46ch; color: var(--grey-300); }
 .not-found-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+
+/* ---------- Scanner : billet de groupe ---------- */
+.scanner-result--group { background: var(--royal-soft); border-left-color: var(--royal); }
+.scanner-result--group b { color: var(--royal-deep); }
+.scanner-count { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.scanner-count .btn { min-width: 48px; justify-content: center; }
+.scanner-result > .btn { justify-self: start; margin-top: 4px; }

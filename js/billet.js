@@ -22,10 +22,17 @@
       : "";
     const past = b.debut && new Date(b.debut).getTime() < Date.now();
     const confirmed = b.statut === "confirmee" && !b.liste_attente;
+    const places = Number(b.places) || 1;
+    const entered = b.entrees != null ? Number(b.entrees) : b.scanned_at ? places : 0;
+    const full = entered >= places;
     const state = b.liste_attente ? ["Liste d'attente", "wait", "L'événement est complet. On vous prévient sur WhatsApp si une place se libère."]
       : b.statut === "refusee" ? ["Réservation refusée", "no", "Le paiement n'a pas pu être validé. Contactez l'équipe sur WhatsApp."]
       : b.statut !== "confirmee" ? ["En attente de vérification", "wait", "Votre QR code apparaîtra ici dès que l'équipe aura vérifié votre reçu. Gardez ce lien."]
-      : b.scanned_at ? ["Entrée validée", "ok", `Billet scanné le ${new Date(b.scanned_at).toLocaleString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}.`]
+      : full ? ["Entrée validée", "ok", places > 1
+          ? `Tout le groupe est entré (${places}/${places}).`
+          : `Billet scanné le ${new Date(b.scanned_at).toLocaleString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}.`]
+      : entered ? ["Entrées en cours", "ok", `${entered} sur ${places} personnes sont entrées. Le QR code reste valable pour les ${places - entered} autres.`]
+      : places > 1 ? ["Places confirmées", "ok", `Ce QR code est valable pour ${places} personnes. Partagez ce lien avec votre groupe : chacun peut entrer à son heure.`]
       : ["Place confirmée", "ok", "Présentez ce QR code à l'entrée."];
 
     let qrSvg = "";
@@ -44,7 +51,7 @@
       </div>
       <h1 class="eticket-title">${esc(b.evenement)}</h1>
       <p class="eticket-when">${esc(when)}${b.horaires ? ` · ${esc(b.horaires)}` : ""}</p>
-      ${qrSvg ? `<div class="eticket-qr${b.scanned_at ? " is-used" : ""}">${qrSvg}</div>` : ""}
+      ${qrSvg ? `<div class="eticket-qr${full ? " is-used" : ""}">${qrSvg}</div>` : ""}
       <p class="eticket-state">${state[2]}</p>
       <dl class="eticket-facts">
         <div><dt>Nom</dt><dd>${esc(b.prenom)} ${esc(b.nom)}</dd></div>

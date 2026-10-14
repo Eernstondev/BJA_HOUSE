@@ -183,7 +183,11 @@ alter table public.reservations add column if not exists liste_attente boolean n
 -- Nombre de places réservées d'un coup (un seul billet pour tout le groupe)
 alter table public.reservations add column if not exists places integer not null default 1 check (places between 1 and 10);
 alter table public.reservations add column if not exists code_promo    text check (char_length(code_promo) <= 40);
-alter table public.reservations add column if not exists scanned_at    timestamptz;
+alter table public.reservations add column if not exists scanned_at    timestamptz; -- première entrée
+-- Billet de groupe : les personnes peuvent arriver séparément, chaque scan compte les entrées.
+alter table public.reservations add column if not exists entrees         integer not null default 0 check (entrees >= 0);
+alter table public.reservations add column if not exists derniere_entree timestamptz;
+update public.reservations set entrees = places, derniere_entree = scanned_at where scanned_at is not null and entrees = 0;
 create unique index if not exists reservations_ticket_token_key on public.reservations (ticket_token);
 
 alter table public.evenements add column if not exists places integer check (places is null or places > 0); -- vide = illimité
@@ -342,7 +346,7 @@ create or replace function public.billet(p_token uuid)
 returns json language sql stable security definer set search_path = '' as $$
   select json_build_object(
     'reference', r.reference, 'prenom', r.prenom, 'nom', r.nom, 'statut', r.statut,
-    'liste_attente', r.liste_attente, 'montant', r.montant, 'scanned_at', r.scanned_at, 'places', r.places,
+    'liste_attente', r.liste_attente, 'montant', r.montant, 'scanned_at', r.scanned_at, 'places', r.places, 'entrees', r.entrees,
     'event_id', r.event_id, 'evenement', coalesce(e.titre, r.event_title),
     'debut', e.debut, 'horaires', e.horaires, 'lieu', e.lieu)
   from public.reservations r left join public.evenements e on e.id = r.event_id
@@ -350,11 +354,15 @@ returns json language sql stable security definer set search_path = '' as $$
 $$;
 
 -- Scan à l'entrée (admin) : par QR code (jeton) ou par référence BJA-XXXXXX
-create or replace function public.valider_entree(p_code text)
+-- Billet de groupe : sans p_nombre, l'admin choisit d'abord combien de personnes entrent (résultat « groupe »).
+drop function if exists public.valider_entree(text);
+create or replace function public.valider_entree(p_code text, p_nombre integer default null)
 returns json language plpgsql security definer set search_path = '' as $$
 declare
-  r public.reservations;
-  v text := trim(coalesce(p_code, ''));
+  r     public.reservations;
+  v     text := trim(coalesce(p_code, ''));
+  reste integer;
+  n     integer;
 begin
   if not public.is_admin() then raise exception 'Réservé aux admins.'; end if;
   v := coalesce(substring(v from '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'), upper(v));
@@ -367,11 +375,22 @@ begin
   if r.statut <> 'confirmee' or r.liste_attente then
     return json_build_object('resultat', 'non_confirme', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'statut', r.statut, 'liste_attente', r.liste_attente);
   end if;
-  if r.scanned_at is not null then
-    return json_build_object('resultat', 'deja', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'scanned_at', r.scanned_at, 'places', r.places);
+  reste := r.places - r.entrees;
+  if reste <= 0 then
+    return json_build_object('resultat', 'deja', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title,
+      'scanned_at', r.scanned_at, 'derniere_entree', r.derniere_entree, 'places', r.places, 'entrees', r.entrees, 'restantes', 0);
   end if;
-  update public.reservations set scanned_at = now() where id = r.id;
-  return json_build_object('resultat', 'ok', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'scanned_at', now(), 'places', r.places);
+  if p_nombre is null and reste > 1 then
+    return json_build_object('resultat', 'groupe', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title,
+      'places', r.places, 'entrees', r.entrees, 'restantes', reste);
+  end if;
+  n := coalesce(p_nombre, 1);
+  if n < 1 or n > reste then raise exception 'Il reste % entrée(s) sur ce billet.', reste; end if;
+  update public.reservations
+     set entrees = entrees + n, scanned_at = coalesce(scanned_at, now()), derniere_entree = now()
+   where id = r.id;
+  return json_build_object('resultat', 'ok', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title,
+    'scanned_at', now(), 'places', r.places, 'nombre', n, 'entrees', r.entrees + n, 'restantes', reste - n);
 end $$;
 
 -- Avis : seulement par une personne dont la réservation est confirmée, après l'événement, une fois.
@@ -407,11 +426,11 @@ end $$;
 
 revoke execute on function public.places_restantes(), public.verifier_code(text, text),
   public.reserver(text, text, text, text, text, text, text, text, integer), public.billet(uuid),
-  public.valider_entree(text), public.laisser_avis(text, integer, text, text) from public;
+  public.valider_entree(text, integer), public.laisser_avis(text, integer, text, text) from public;
 grant execute on function public.places_restantes(), public.verifier_code(text, text),
   public.reserver(text, text, text, text, text, text, text, text, integer), public.billet(uuid),
   public.laisser_avis(text, integer, text, text) to anon, authenticated;
-grant execute on function public.valider_entree(text) to authenticated;
+grant execute on function public.valider_entree(text, integer) to authenticated;
 
 -- ============ Espace admin ============
 -- Seuls les comptes listés ici (créés dans Authentication → Users) accèdent à admin.html.

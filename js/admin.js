@@ -246,10 +246,12 @@
   const stars = (n) => `<span class="stars" aria-label="${n} sur 5">${"★".repeat(n)}<span class="stars-off">${"★".repeat(5 - n)}</span></span>`;
   const eventTitle = (id) => data.evenements.find((e) => e.id === id)?.titre
     || data.reservations.find((r) => r.event_id === id)?.event_title || id;
-  const confirmMsg = (r) => `Bonjour ${r.prenom}, votre paiement est vérifié : votre réservation ${r.reference} pour « ${r.event_title} » est confirmée. Voici votre billet avec QR code, à présenter à l'entrée : ${ticketUrl(r)} À bientôt ! BJA HOUSE`;
+  const confirmMsg = (r) => `Bonjour ${r.prenom}, votre paiement est vérifié : votre réservation ${r.reference} pour « ${r.event_title} » est confirmée. Voici votre billet avec QR code, à présenter à l'entrée : ${ticketUrl(r)}${seatsOf(r) > 1 ? ` Ce billet est valable pour ${seatsOf(r)} personnes : partagez ce lien avec votre groupe, chacun peut entrer à son heure avec le même QR code.` : ""} À bientôt ! BJA HOUSE`;
   const refuseMsg = (r) => `Bonjour ${r.prenom}, nous n'avons pas pu valider le paiement de votre réservation ${r.reference} pour « ${r.event_title} ». Répondez à ce message pour régulariser. BJA HOUSE`;
   const seatsOf = (r) => Number(r.places) || 1;
   const sumSeats = (list) => list.reduce((n, r) => n + seatsOf(r), 0);
+  const enteredOf = (r) => (r.entrees != null ? Number(r.entrees) : r.scanned_at ? seatsOf(r) : 0);
+  const entryCount = (r) => (seatsOf(r) > 1 ? `${enteredOf(r)}/${seatsOf(r)} entrés` : "");
   const ticketUrl = (r) => new URL(`billet.html?t=${r.ticket_token}`, location.href).href;
   const waBtn = (href, label) =>
     href ? `<a class="btn btn--outline btn--sm" href="${esc(href)}" target="_blank" rel="noopener">${label}</a>` : "";
@@ -320,14 +322,14 @@
   const cards = {
     reservations: (r) => `
       <article class="admin-card" data-id="${esc(r.id)}">
-        <div class="admin-card-head"><span class="admin-ref">${esc(r.reference)}</span>${r.liste_attente ? tag("Liste d'attente", "wait") : badge(r.statut)}${r.scanned_at ? tag("Entré", "ok") : ""}<time>${when(r.created_at)}</time></div>
+        <div class="admin-card-head"><span class="admin-ref">${esc(r.reference)}</span>${r.liste_attente ? tag("Liste d'attente", "wait") : badge(r.statut)}${r.scanned_at ? tag(enteredOf(r) < seatsOf(r) ? entryCount(r) : seatsOf(r) > 1 ? "Groupe entré" : "Entré", "ok") : ""}<time>${when(r.created_at)}</time></div>
         <h3>${esc(r.event_title)}</h3>
         <dl class="admin-facts">
           <div><dt>Client</dt><dd>${esc(r.prenom)} ${esc(r.nom)}${seatsOf(r) > 1 ? ` · <b>${seatsOf(r)} places</b>` : ""}</dd></div>
           <div><dt>Téléphone</dt><dd><a href="tel:${esc(r.telephone)}">${esc(r.telephone)}</a></dd></div>
           <div><dt>E-mail</dt><dd>${esc(r.email)}</dd></div>
           <div><dt>Paiement</dt><dd>${esc(payLabel(r.moyen_paiement))} · ${esc(api.price(Number(r.montant)))}${r.code_promo ? ` · code ${esc(r.code_promo)}` : ""}</dd></div>
-          ${r.scanned_at ? `<div><dt>Entrée</dt><dd>${when(r.scanned_at)}</dd></div>` : ""}
+          ${r.scanned_at ? `<div><dt>Entrée</dt><dd>${when(r.scanned_at)}${seatsOf(r) > 1 ? ` · ${entryCount(r)}${r.derniere_entree && r.derniere_entree !== r.scanned_at ? `, dernière à ${new Date(r.derniere_entree).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}` : ""}</dd></div>` : ""}
         </dl>
         <div class="admin-actions">
           ${r.recu_path ? btn("receipt", "Voir le reçu") : ""}
@@ -705,6 +707,7 @@
       ["Places", (r) => seatsOf(r)], ["Montant", (r) => String(r.montant).replace(".", ",")], ["Code promo", (r) => r.code_promo],
       ["Statut", (r) => (r.liste_attente ? "Liste d'attente" : STATUS[r.statut][0])],
       ["Entrée", (r) => (r.scanned_at ? new Date(r.scanned_at).toLocaleString("fr-FR") : "")],
+      ["Entrés", (r) => enteredOf(r)],
     ]);
   }
 
@@ -1000,7 +1003,7 @@
   /* =====================================================================
      Scanner des billets à l'entrée
      ===================================================================== */
-  const scanner = { stream: null, timer: 0, busy: false, last: "", lastAt: 0 };
+  const scanner = { stream: null, timer: 0, busy: false, last: "", lastAt: 0, pending: "" };
   let jsQRLoading = null;
 
   function scannerView() {
@@ -1024,11 +1027,11 @@
       </section>`;
   }
 
-  function scanResult(kind, title, text) {
+  function scanResult(kind, title, text, extra = "") {
     const box = $("[data-scan-result]", list);
     if (!box) return;
     box.className = `scanner-result scanner-result--${kind}`;
-    box.innerHTML = `<b>${esc(title)}</b>${text ? `<span>${esc(text)}</span>` : ""}`;
+    box.innerHTML = `<b>${esc(title)}</b>${text ? `<span>${esc(text)}</span>` : ""}${extra}`;
   }
 
   const loadJsQR = () => jsQRLoading || (jsQRLoading = new Promise((resolve, reject) => {
@@ -1116,24 +1119,36 @@
     $("[data-action=scan-stop]", list).hidden = true;
   }
 
-  async function validate(code) {
+  // Billet de groupe : les personnes peuvent arriver séparément, l'admin indique combien entrent à ce scan.
+  async function validate(code, nombre = null) {
     scanner.busy = true;
+    scanner.pending = "";
     scanResult("idle", "Vérification…", "");
     try {
-      const r = await db.rpc("valider_entree", { p_code: code });
-      const who = r.nom ? `${r.nom} · ${r.reference}${r.places > 1 ? `\n${r.places} personnes avec ce billet` : ""}` : "";
+      const r = await db.rpc("valider_entree", nombre ? { p_code: code, p_nombre: nombre } : { p_code: code });
+      const who = r.nom ? `${r.nom} · ${r.reference}` : "";
+      const group = r.places > 1;
+      const resa = data.reservations.find((x) => x.reference === r.reference);
       if (r.resultat === "ok") {
-        scanResult("ok", "Entrée validée", `${who}\n${r.evenement}`);
-        const resa = data.reservations.find((x) => x.reference === r.reference);
-        if (resa) resa.scanned_at = r.scanned_at;
+        scanResult("ok", r.nombre > 1 ? `${r.nombre} entrées validées` : "Entrée validée",
+          `${who}\n${r.evenement}${group ? `\n${r.entrees}/${r.places} entrés${r.restantes ? ` · encore ${r.restantes} à venir` : " · groupe complet"}` : ""}`);
+        if (resa) { resa.scanned_at ||= r.scanned_at; resa.derniere_entree = r.scanned_at; resa.entrees = r.entrees; }
+      } else if (r.resultat === "groupe") {
+        scanner.pending = code;
+        const choices = Array.from({ length: r.restantes }, (_, i) => i + 1)
+          .map((n) => `<button class="btn ${n === r.restantes ? "btn--primary" : "btn--outline"} btn--sm" type="button" data-scan-count="${n}">${n === r.restantes ? `Tous (${n})` : n}</button>`).join("");
+        scanResult("group", "Combien de personnes entrent ?",
+          `${who}\n${r.evenement}\nBillet de ${r.places} personnes · ${r.entrees ? `déjà ${r.entrees} entrées, ` : ""}${r.restantes} restantes`,
+          `<div class="scanner-count">${choices}</div>${btn("scan-cancel", "Annuler")}`);
       } else if (r.resultat === "deja") {
-        scanResult("warn", "Billet déjà utilisé", `${who}\nEntré le ${when(r.scanned_at)}`);
+        scanResult("warn", group ? "Groupe déjà entré en entier" : "Billet déjà utilisé",
+          `${who}\n${group ? `${r.entrees}/${r.places} entrés · première entrée le ${when(r.scanned_at)}, dernière le ${when(r.derniere_entree || r.scanned_at)}` : `Entré le ${when(r.scanned_at)}`}`);
       } else if (r.resultat === "non_confirme") {
         scanResult("no", r.liste_attente ? "Personne en liste d'attente" : r.statut === "refusee" ? "Réservation refusée" : "Paiement pas encore confirmé", `${who}\n${r.evenement}`);
       } else {
         scanResult("no", "Billet inconnu", "Ce QR code ne correspond à aucune réservation.");
       }
-      navigator.vibrate?.(r.resultat === "ok" ? 120 : [80, 60, 80]);
+      navigator.vibrate?.(r.resultat === "ok" || r.resultat === "groupe" ? 120 : [80, 60, 80]);
     } catch (err) {
       scanResult("no", "Vérification impossible", err.message);
     } finally {
@@ -1145,6 +1160,9 @@
     const action = e.target.closest("[data-action]")?.dataset.action;
     if (action === "scan-start") startScan();
     if (action === "scan-stop") { stopScan(); scanResult("idle", "Caméra fermée", "Rouvrez-la pour scanner le billet suivant."); }
+    if (action === "scan-cancel") { scanner.pending = ""; scanResult("idle", "Entrée annulée", "Aucune entrée comptée. Scannez le billet suivant."); }
+    const count = e.target.closest("[data-scan-count]");
+    if (count && scanner.pending && !scanner.busy) validate(scanner.pending, Number(count.dataset.scanCount));
   });
   list.addEventListener("submit", (e) => {
     if (!e.target.matches("[data-scan-form]")) return;
@@ -1204,23 +1222,24 @@
     if (!rows.length) return `<p class="admin-empty">${remind
       ? `Aucun inscrit confirmé${eventFilter ? " pour cet événement" : " pour les événements à venir"}.`
       : `Aucune entrée scannée${eventFilter ? " pour cet événement" : ""}. Les personnes apparaissent ici dès que leur billet est scanné.`}</p>`;
+    const count = (list) => (remind ? sumSeats(list) : list.reduce((n, r) => n + enteredOf(r), 0));
     const byEvent = new Map();
     rows.forEach((r) => (byEvent.get(r.event_id) || byEvent.set(r.event_id, []).get(r.event_id)).push(r));
     const groups = [...byEvent.values()].map((list) => `
       <section class="entries-group">
-        <h3>${esc(list[0].event_title)} <span>${sumSeats(list)} ${remind ? "inscrit" : "entrée"}${sumSeats(list) > 1 ? "s" : ""}</span></h3>
+        <h3>${esc(list[0].event_title)} <span>${count(list)} ${remind ? "inscrit" : "entrée"}${count(list) > 1 ? "s" : ""}</span></h3>
         <ul class="entries-list">${list.map((r) => `
           <li>
             <label class="entry">
               <input type="checkbox" data-entry value="${esc(r.id)}" checked>
-              <span class="entry-name"><b>${esc(r.prenom)} ${esc(r.nom)}${seatsOf(r) > 1 ? ` (${seatsOf(r)} places)` : ""}</b><small>${esc(r.telephone)} · ${esc(r.reference)}</small></span>
+              <span class="entry-name"><b>${esc(r.prenom)} ${esc(r.nom)}${seatsOf(r) > 1 ? ` (${remind ? `${seatsOf(r)} places` : entryCount(r)})` : ""}</b><small>${esc(r.telephone)} · ${esc(r.reference)}</small></span>
               ${remind ? "<span></span>" : `<time>${new Date(r.scanned_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>`}
               ${q.sent.has(r.id) ? tag(q.done, "ok") : ""}
             </label>
           </li>`).join("")}
         </ul>
       </section>`).join("");
-    const n = sumSeats(rows);
+    const n = count(rows);
     return `
       <section class="admin-entries">
         <div class="entries-head">
@@ -1304,7 +1323,7 @@
       if (r.liste_attente) x.queue += n;
       else if (r.statut === "confirmee") { x.ok += n; x.revenue += Number(r.montant || 0); }
       else if (r.statut === "en_attente") x.wait += n;
-      if (r.scanned_at) x.in += n;
+      x.in += enteredOf(r);
     });
     data.avis.forEach((a) => row(a.event_id).notes.push(a.note));
     const debut = (id) => data.evenements.find((e) => e.id === id)?.debut || "";

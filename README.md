@@ -4,7 +4,7 @@ Site vitrine de BJA HOUSE, en HTML, CSS et JavaScript sans framework. Réalisé 
 
 ## Pages
 `index.html` (accueil), `galerie.html`, `activites.html`, `a-propos.html`, `contact.html`,
-`reservation.html` (réservation de 1 à 10 places, un seul billet pour le groupe), `evenement.html` (détails, places restantes, avis,
+`reservation.html` (réservation de 1 à 10 places, un seul billet pour le groupe, billet Standard ou VIP), `evenement.html` (détails, places restantes, avis,
 boutons Partager et Ajouter au calendrier), `billet.html` (billet avec QR code), `partager.html` (envoi de photos pour la galerie)
 `confidentialite.html` (données personnelles) et `404.html` (page introuvable).
 
@@ -38,6 +38,7 @@ Page non listée dans le menu, réservée aux comptes admin.
 Depuis le tableau de bord, l'admin gère tout le site :
 - **Réservations** : voir le reçu, confirmer ou refuser (WhatsApp s'ouvre aussitôt vers la personne avec son billet ou le refus), gérer la liste d'attente, filtrer par événement, exporter pour Excel, supprimer.
 - **Scanner** : à l'entrée, ouvrir l'espace admin sur le téléphone et scanner le QR code du billet (ou taper sa référence). Un billet d'une place n'est accepté qu'une fois. La caméra demande le site en ligne (https). Billet de groupe : le même QR code sert à tout le groupe, et à chaque scan l'admin choisit combien de personnes entrent (ex. 3 sur 10), jusqu'à ce que tout le groupe soit entré.
+- **Billets VIP** : dans l'événement, renseigner « Prix VIP » (vide = pas de VIP) et, si besoin, « Places VIP » (comprises dans le total). Les billets VIP sont marqués ★ VIP dans l'admin, au scanner et sur le billet.
 - **Rappels** : les inscrits confirmés d'un événement à venir ; la veille, leur envoyer un rappel WhatsApp un par un avec le lien de leur billet (aussi via « Rappel la veille » sur la carte de l'événement).
 - **Entrées** : les personnes scannées avec leur heure d'arrivée, par événement ; sélectionner et leur envoyer un remerciement sur WhatsApp, ou copier leurs numéros.
 - **Événements** : créer, modifier (date, prix, lieu, nombre de places, image), masquer ou supprimer ; voir les inscrits. Quand un événement est complet, les inscriptions passent en liste d'attente.

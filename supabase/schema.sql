@@ -191,6 +191,10 @@ update public.reservations set entrees = places, derniere_entree = scanned_at wh
 create unique index if not exists reservations_ticket_token_key on public.reservations (ticket_token);
 
 alter table public.evenements add column if not exists places integer check (places is null or places > 0); -- vide = illimité
+-- Billets VIP : prix VIP vide = pas de VIP ; places VIP vide = pas de limite VIP (dans la limite des places totales)
+alter table public.evenements add column if not exists prix_vip   numeric check (prix_vip is null or prix_vip >= 0);
+alter table public.evenements add column if not exists places_vip integer check (places_vip is null or places_vip > 0);
+alter table public.reservations add column if not exists type_billet text not null default 'standard' check (type_billet in ('standard', 'vip'));
 
 create table if not exists public.codes_promo (
   code             text primary key check (code ~ '^[A-Z0-9_-]{3,40}$'),
@@ -240,27 +244,34 @@ grant select (id, created_at, event_id, auteur, note, commentaire) on public.avi
 create or replace function public.maintenant_haiti() returns timestamp
 language sql stable set search_path = '' as $$ select (now() at time zone 'America/Port-au-Prince') $$;
 
--- Places restantes par événement (seulement ceux qui ont un nombre de places)
+-- Places restantes par événement (total et VIP ; vide = illimité)
+drop function if exists public.places_restantes();
 create or replace function public.places_restantes()
-returns table (event_id text, restantes integer)
+returns table (event_id text, restantes integer, restantes_vip integer)
 language sql stable security definer set search_path = '' as $$
-  select e.id, greatest(e.places - coalesce(sum(r.places), 0)::int, 0)
+  select e.id,
+    case when e.places is not null then greatest(e.places - coalesce(sum(r.places), 0)::int, 0) end,
+    case when e.places_vip is not null then greatest(e.places_vip - coalesce(sum(r.places) filter (where r.type_billet = 'vip'), 0)::int, 0) end
   from public.evenements e
   left join public.reservations r on r.event_id = e.id and not r.liste_attente and r.statut <> 'refusee'
-  where e.publie and e.places is not null
-  group by e.id, e.places;
+  where e.publie and (e.places is not null or e.places_vip is not null)
+  group by e.id, e.places, e.places_vip;
 $$;
 
--- Prix d'un événement avec un code promo (sans consommer le code)
-create or replace function public.verifier_code(p_code text, p_event_id text)
+-- Prix d'un événement (standard ou VIP) avec un code promo (sans consommer le code)
+drop function if exists public.verifier_code(text, text);
+create or replace function public.verifier_code(p_code text, p_event_id text, p_type text default 'standard')
 returns json language plpgsql stable security definer set search_path = '' as $$
 declare
   ev public.evenements;
   c  public.codes_promo;
+  base  numeric;
   final numeric;
 begin
   select * into ev from public.evenements where id = p_event_id and publie;
   if not found then return json_build_object('valide', false, 'message', 'Événement introuvable.'); end if;
+  base := case when p_type = 'vip' then ev.prix_vip else ev.prix end;
+  if base is null then return json_build_object('valide', false, 'message', 'Pas de billets VIP pour cet événement.'); end if;
   select * into c from public.codes_promo where code = upper(trim(p_code));
   if not found or not c.actif
      or (c.event_id is not null and c.event_id <> ev.id)
@@ -268,22 +279,25 @@ begin
      or (c.max_utilisations is not null and c.utilisations >= c.max_utilisations) then
     return json_build_object('valide', false, 'message', 'Ce code n''est pas valable pour cet événement.');
   end if;
-  final := greatest(0, case when c.type = 'pourcent' then round(ev.prix * (1 - c.valeur / 100)) else ev.prix - c.valeur end);
-  return json_build_object('valide', true, 'code', c.code, 'prix_initial', ev.prix, 'prix_final', final,
+  final := greatest(0, case when c.type = 'pourcent' then round(base * (1 - c.valeur / 100)) else base - c.valeur end);
+  return json_build_object('valide', true, 'code', c.code, 'prix_initial', base, 'prix_final', final,
     'message', case when c.type = 'pourcent' then '-' || trim(to_char(c.valeur, 'FM999')) || ' %' else '-' || trim(to_char(c.valeur, 'FM999999')) || ' HTG' end);
 end $$;
 
 -- Réservation : vérifie l'événement, compte les places, applique le code promo,
 -- crée la référence et le billet. C'est la seule façon pour le public de réserver.
 drop function if exists public.reserver(text, text, text, text, text, text, text, text);
+drop function if exists public.reserver(text, text, text, text, text, text, text, text, integer);
 create or replace function public.reserver(
   p_event_id text, p_prenom text, p_nom text, p_email text, p_telephone text,
   p_moyen_paiement text default null, p_recu_path text default null, p_code text default null,
-  p_places integer default 1)
+  p_places integer default 1, p_type text default 'standard')
 returns json language plpgsql security definer set search_path = '' as $$
 declare
   ev      public.evenements;
   pris    integer;
+  pris_vip integer;
+  v_type  text := case when p_type = 'vip' then 'vip' else 'standard' end;
   attente boolean := false;
   prix    numeric;
   v_code  text := nullif(upper(trim(coalesce(p_code, ''))), '');
@@ -308,9 +322,19 @@ begin
     end if;
   end if;
 
-  prix := ev.prix;
+  if v_type = 'vip' then
+    if ev.prix_vip is null then raise exception 'Pas de billets VIP pour cet événement.'; end if;
+    if ev.places_vip is not null and not attente then
+      select coalesce(sum(places), 0) into pris_vip from public.reservations
+      where event_id = ev.id and type_billet = 'vip' and not liste_attente and statut <> 'refusee';
+      if pris_vip >= ev.places_vip then raise exception 'Les places VIP sont épuisées. Choisissez une place standard.'; end if;
+      if pris_vip + nb > ev.places_vip then raise exception 'Il ne reste que % place(s) VIP.', ev.places_vip - pris_vip; end if;
+    end if;
+  end if;
+
+  prix := case when v_type = 'vip' then ev.prix_vip else ev.prix end;
   if v_code is not null then
-    promo := public.verifier_code(v_code, ev.id);
+    promo := public.verifier_code(v_code, ev.id, v_type);
     if not (promo->>'valide')::boolean then raise exception '%', promo->>'message'; end if;
     prix := (promo->>'prix_final')::numeric;
     if not attente then
@@ -333,12 +357,12 @@ begin
   end loop;
 
   insert into public.reservations (reference, event_id, event_title, prenom, nom, email, telephone,
-    moyen_paiement, montant, recu_path, ticket_token, liste_attente, code_promo, places)
+    moyen_paiement, montant, recu_path, ticket_token, liste_attente, code_promo, places, type_billet)
   values (ref, ev.id, ev.titre, trim(p_prenom), trim(p_nom), trim(p_email), trim(p_telephone),
     case when prix > 0 and not attente then p_moyen_paiement end, prix,
-    case when prix > 0 and not attente then p_recu_path end, tok, attente, v_code, nb);
+    case when prix > 0 and not attente then p_recu_path end, tok, attente, v_code, nb, v_type);
 
-  return json_build_object('reference', ref, 'ticket_token', tok, 'liste_attente', attente, 'montant', prix, 'places', nb);
+  return json_build_object('reference', ref, 'ticket_token', tok, 'liste_attente', attente, 'montant', prix, 'places', nb, 'type', v_type);
 end $$;
 
 -- Billet : lisible uniquement avec son jeton secret (celui du QR code)
@@ -346,7 +370,7 @@ create or replace function public.billet(p_token uuid)
 returns json language sql stable security definer set search_path = '' as $$
   select json_build_object(
     'reference', r.reference, 'prenom', r.prenom, 'nom', r.nom, 'statut', r.statut,
-    'liste_attente', r.liste_attente, 'montant', r.montant, 'scanned_at', r.scanned_at, 'places', r.places, 'entrees', r.entrees,
+    'liste_attente', r.liste_attente, 'montant', r.montant, 'scanned_at', r.scanned_at, 'places', r.places, 'entrees', r.entrees, 'type', r.type_billet,
     'event_id', r.event_id, 'evenement', coalesce(e.titre, r.event_title),
     'debut', e.debut, 'horaires', e.horaires, 'lieu', e.lieu)
   from public.reservations r left join public.evenements e on e.id = r.event_id
@@ -373,15 +397,15 @@ begin
   end if;
   if not found then return json_build_object('resultat', 'introuvable'); end if;
   if r.statut <> 'confirmee' or r.liste_attente then
-    return json_build_object('resultat', 'non_confirme', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title, 'statut', r.statut, 'liste_attente', r.liste_attente);
+    return json_build_object('resultat', 'non_confirme', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'type', r.type_billet, 'evenement', r.event_title, 'statut', r.statut, 'liste_attente', r.liste_attente);
   end if;
   reste := r.places - r.entrees;
   if reste <= 0 then
-    return json_build_object('resultat', 'deja', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title,
+    return json_build_object('resultat', 'deja', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'type', r.type_billet, 'evenement', r.event_title,
       'scanned_at', r.scanned_at, 'derniere_entree', r.derniere_entree, 'places', r.places, 'entrees', r.entrees, 'restantes', 0);
   end if;
   if p_nombre is null and reste > 1 then
-    return json_build_object('resultat', 'groupe', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title,
+    return json_build_object('resultat', 'groupe', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'type', r.type_billet, 'evenement', r.event_title,
       'places', r.places, 'entrees', r.entrees, 'restantes', reste);
   end if;
   n := coalesce(p_nombre, 1);
@@ -389,7 +413,7 @@ begin
   update public.reservations
      set entrees = entrees + n, scanned_at = coalesce(scanned_at, now()), derniere_entree = now()
    where id = r.id;
-  return json_build_object('resultat', 'ok', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'evenement', r.event_title,
+  return json_build_object('resultat', 'ok', 'reference', r.reference, 'nom', r.prenom || ' ' || r.nom, 'type', r.type_billet, 'evenement', r.event_title,
     'scanned_at', now(), 'places', r.places, 'nombre', n, 'entrees', r.entrees + n, 'restantes', reste - n);
 end $$;
 
@@ -424,11 +448,11 @@ begin
   return json_build_object('ok', true, 'event_id', r.event_id);
 end $$;
 
-revoke execute on function public.places_restantes(), public.verifier_code(text, text),
-  public.reserver(text, text, text, text, text, text, text, text, integer), public.billet(uuid),
+revoke execute on function public.places_restantes(), public.verifier_code(text, text, text),
+  public.reserver(text, text, text, text, text, text, text, text, integer, text), public.billet(uuid),
   public.valider_entree(text, integer), public.laisser_avis(text, integer, text, text) from public;
-grant execute on function public.places_restantes(), public.verifier_code(text, text),
-  public.reserver(text, text, text, text, text, text, text, text, integer), public.billet(uuid),
+grant execute on function public.places_restantes(), public.verifier_code(text, text, text),
+  public.reserver(text, text, text, text, text, text, text, text, integer, text), public.billet(uuid),
   public.laisser_avis(text, integer, text, text) to anon, authenticated;
 grant execute on function public.valider_entree(text, integer) to authenticated;
 

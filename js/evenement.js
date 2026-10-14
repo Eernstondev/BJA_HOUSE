@@ -65,6 +65,7 @@ window.BJAApi.ready.then(() => {
       <div><dt>Lieu</dt><dd>${esc(ev.place)}</dd></div>
       ${past ? "" : seats}
       <div><dt>Prix</dt><dd class="price price--big">${esc(api.price(ev.price))}</dd></div>
+      ${ev.priceVip != null ? `<div><dt>VIP</dt><dd class="price price--big">${!past && ev.remainingVip === 0 ? "Complet" : esc(api.price(ev.priceVip))}</dd></div>` : ""}
     </dl>
     ${past ? `<span class="tag">Terminé</span>`
       : `<a class="btn btn--primary btn--block" href="reservation.html#${encodeURIComponent(ev.id)}">${full ? "Rejoindre la liste d'attente" : "Réserver ma place"} <span class="arrow" aria-hidden="true">→</span></a>`}

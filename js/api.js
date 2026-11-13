@@ -29,7 +29,7 @@ window.BJAApi = (() => {
   }
 
   async function select(table, query) {
-    const res = await fetch(`${base()}/rest/v1/${table}?${query}`, { headers: headers() });
+    const res = await fetch(`${base()}/rest/v1/${table}?${query}`, { headers: headers(), cache: "no-store" });
     if (!res.ok) throw new Error(`Lecture impossible (${res.status})`);
     return res.json();
   }

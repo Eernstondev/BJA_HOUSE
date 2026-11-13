@@ -716,8 +716,16 @@
     submit.disabled = true;
     status.textContent = "Enregistrement…";
     try {
-      const [saved] = await db.update("reglages", 1, row);
-      data.reglages = saved || { ...data.reglages, ...row };
+      // Upsert sur id = 1 : crée la ligne si elle manque. Un PATCH sur une ligne absente
+      // (ou refusé par la RLS) renvoie [] sans erreur, et rien n'était enregistré.
+      const res = await request("/rest/v1/reglages?on_conflict=id", {
+        method: "POST",
+        headers: { ...JSON_HEADERS, Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ id: 1, ...row }),
+      });
+      const [saved] = await res.json();
+      if (!saved) throw new Error("Réglages non enregistrés : ce compte n'a pas les droits admin dans la base.");
+      data.reglages = saved;
       status.textContent = "Réglages enregistrés. Le site les utilise dès le prochain chargement de page.";
     } catch (err) {
       status.classList.add("is-error");

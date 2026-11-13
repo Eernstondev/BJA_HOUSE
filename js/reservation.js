@@ -210,7 +210,7 @@ window.BJAApi.ready.then(() => {
       if (!needPayment()) return "";
       const file = receipt.files[0];
       if (!file) return "Ajoutez la photo de votre reçu.";
-      if (!api.extension(file)) return "Format non accepté : utilisez une photo JPG, PNG ou WEBP.";
+      if (!api.extension(file)) return "Format non accepté : utilisez une photo JPG, PNG, WEBP ou HEIC.";
       if (file.size > MAX_RECEIPT) return "La photo dépasse 5 Mo.";
       return "";
     },
@@ -296,7 +296,8 @@ window.BJAApi.ready.then(() => {
       if (api.isReady()) {
         let recuPath = null;
         if (needPayment()) {
-          const file = receipt.files[0];
+          // HEIC → JPEG : un reçu en HEIC ne s'ouvre pas dans l'espace admin, donc invérifiable.
+          const file = await api.toWebImage(receipt.files[0]);
           recuPath = `${api.uuid()}/${api.uuid()}.${api.extension(file)}`;
           status.textContent = "Envoi de la photo du reçu…";
           await api.upload("recus", recuPath, file);

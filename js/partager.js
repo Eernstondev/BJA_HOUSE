@@ -48,15 +48,32 @@ window.BJAApi.ready.then(() => {
 
   const err = (id, msg) => { $(`#${id}-error`).textContent = msg; return !msg; };
 
-  function addFiles(list) {
+  // Les photos HEIC (iPhone) sont converties en JPEG avant l'aperçu : ni l'aperçu ni la
+  // galerie du site ne savent afficher le HEIC. La taille est vérifiée après conversion,
+  // puisque c'est le fichier converti qui est envoyé.
+  async function addFiles(list) {
     const incoming = Array.from(list);
-    const rejected = incoming.filter((f) => !api.extension(f) || f.size > MAX_SIZE);
-    const accepted = incoming.filter((f) => !rejected.includes(f));
-    const room = MAX_FILES - files.length;
-    files = files.concat(accepted.slice(0, Math.max(room, 0)));
+    const wrongFormat = incoming.filter((f) => !api.extension(f));
+    const room = Math.max(MAX_FILES - files.length, 0);
+    const queue = incoming.filter((f) => api.extension(f)).slice(0, room);
+    let tooBig = 0;
+    let failed = 0;
+
+    if (queue.some((f) => api.extension(f) === "heic")) count.textContent = "Conversion…";
+    for (const file of queue) {
+      let photo;
+      try {
+        photo = await api.toWebImage(file);
+      } catch { failed += 1; continue; }
+      if (photo.size > MAX_SIZE) { tooBig += 1; continue; }
+      files.push(photo);
+    }
     update();
-    if (rejected.length) err("photos", "Certaines photos ont été ignorées : JPG, PNG ou WEBP de 8 Mo maximum.");
-    else if (accepted.length > room) err("photos", `${MAX_FILES} photos maximum : les suivantes ont été ignorées.`);
+
+    if (wrongFormat.length) err("photos", "Certaines photos ont été ignorées : JPG, PNG, WEBP ou HEIC uniquement.");
+    else if (tooBig) err("photos", "Certaines photos dépassent 8 Mo et ont été ignorées.");
+    else if (failed) err("photos", "Une photo iPhone n'a pas pu être convertie. Réessayez, ou envoyez-la en JPG.");
+    else if (incoming.length > room) err("photos", `${MAX_FILES} photos maximum : les suivantes ont été ignorées.`);
   }
 
   function update() {

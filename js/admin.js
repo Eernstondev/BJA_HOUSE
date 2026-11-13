@@ -95,7 +95,9 @@
   };
 
   // Réduit les photos (souvent 5 à 12 Mo depuis un téléphone) à 1920 px en JPEG avant l'envoi.
-  async function prepareImage(file) {
+  async function prepareImage(original) {
+    // HEIC → JPEG d'abord : hors Safari, createImageBitmap ne sait pas le décoder.
+    const file = await api.toWebImage(original);
     try {
       const bitmap = await createImageBitmap(file);
       const scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
@@ -833,7 +835,6 @@
 
   async function uploadSiteImage(file, folder) {
     const { blob, ext } = await prepareImage(file);
-    if (ext === "heic") throw new Error("Les photos HEIC ne sont pas acceptées ici : choisissez un JPG ou un PNG.");
     const path = `${folder}/${api.uuid()}.${ext}`;
     await files.upload("site", path, blob);
     return path;

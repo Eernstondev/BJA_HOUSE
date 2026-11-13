@@ -59,7 +59,32 @@ window.BJAApi = (() => {
   };
 
   const IMAGE_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "image/heif": "heic" };
-  const extension = (file) => IMAGE_TYPES[file.type] || null;
+  // Les iPhone n'envoient pas toujours le type MIME du HEIC : on se rabat sur l'extension du nom.
+  const isHeic = (file) => IMAGE_TYPES[file.type] === "heic" || /\.hei[cf]$/i.test(file.name || "");
+  const extension = (file) => (isHeic(file) ? "heic" : IMAGE_TYPES[file.type] || null);
+
+  /* Conversion HEIC → JPEG dans le navigateur. Aucun navigateur n'affiche le HEIC :
+     sans cette étape, les photos venant d'un iPhone restent invisibles sur le site.
+     La librairie (1,3 Mo) n'est chargée que si une photo HEIC est réellement choisie. */
+  let heicLoading = null;
+  const loadHeic2any = () => heicLoading || (heicLoading = new Promise((resolve, reject) => {
+    if (window.heic2any) return resolve(window.heic2any);
+    const s = document.createElement("script");
+    s.src = "js/vendor/heic2any.min.js";
+    s.onload = () => (window.heic2any ? resolve(window.heic2any) : reject(new Error("Conversion HEIC indisponible.")));
+    s.onerror = () => { heicLoading = null; reject(new Error("Conversion HEIC indisponible.")); };
+    document.head.appendChild(s);
+  }));
+
+  // Renvoie le fichier tel quel, ou sa version JPEG s'il est en HEIC.
+  async function toWebImage(file) {
+    if (!isHeic(file)) return file;
+    const convert = await loadHeic2any();
+    const converted = await convert({ blob: file, toType: "image/jpeg", quality: 0.85 });
+    const blob = Array.isArray(converted) ? converted[0] : converted;
+    const name = (file.name || "photo").replace(/\.hei[cf]$/i, "") + ".jpg";
+    return new File([blob], name, { type: "image/jpeg", lastModified: file.lastModified });
+  }
 
   const whatsappLink = (text) => (cfg.whatsapp ? `https://wa.me/${cfg.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(text)}` : null);
 
@@ -128,5 +153,5 @@ window.BJAApi = (() => {
     }
   })();
 
-  return { isReady, ready, rpc, insert, select, upload, publicUrl, uuid, reference, extension, whatsappLink, price, eventDate, isPast, salesEnd, salesClosed, findEvent, esc };
+  return { isReady, ready, rpc, insert, select, upload, publicUrl, uuid, reference, extension, toWebImage, whatsappLink, price, eventDate, isPast, salesEnd, salesClosed, findEvent, esc };
 })();
